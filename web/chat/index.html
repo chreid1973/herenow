@@ -165,7 +165,7 @@
 
         <div style="margin-top:12px" class="box">
           <div class="muted">
-            Consent scope: this tab only. Nothing connects until you click “Enable”.
+           This tab connects only after you explicitly enable the session.
           </div>
         </div>
       </section>
@@ -183,7 +183,7 @@
 
         </div>
 <label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
-  Digg Handle (no real names)
+  Chat Handle (no real names)
 </label>
 
 <input
@@ -193,7 +193,7 @@
   spellcheck="false"
   autocapitalize="none"
   maxlength="24"
-  placeholder="@3HPM"
+  placeholder="Optional — e.g. @3HPM (max 24)"
 />
 
 <p class="faint" style="margin:6px 0 0;">
@@ -253,6 +253,14 @@
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
+let EXT_ENABLED = false;
+
+window.addEventListener("message", (ev) => {
+  if (!ev?.data || ev.data.source !== "herenow-extension") return;
+  if (ev.data.type === "enable-session") {
+    EXT_ENABLED = true;
+  }
+});
 
   function generateRoomId() {
     const bytes = new Uint8Array(16); // 128-bit
@@ -380,6 +388,21 @@ function addBubble(who, text, peerId) {
     ui.log.value += `\n[${t}] ${line}`;
     ui.log.scrollTop = ui.log.scrollHeight;
   }
+
+  // ---- optional extension bridge (keeps web-only flow working) ----
+  // If the HereNow extension is installed, it may send a one-time message after user consents in its overlay.
+  // We treat that as an optional convenience: it can auto-trigger the normal page "Enable" button.
+  window.addEventListener("message", (ev) => {
+    const d = ev && ev.data;
+    if (!d || d.source !== "herenow-extension") return;
+    if (d.type === "enable-session") {
+      appendLog("Extension consent received for this tab.");
+      // Optional convenience: trigger the existing page enable flow
+      if (ui.enableBtn && !state.consentGranted) {
+        ui.enableBtn.click();
+      }
+    }
+  });
 
   // Keep top-of-log status block honest (first 4 lines)
   function setTopStatus(lines) {
@@ -758,7 +781,7 @@ function wireDataChannel(remotePeerId, dc) {
 
   // ---------- handlers ----------
   ui.enableBtn.addEventListener("click", () => {
-    setStatus({ enabled: true });
+setStatus({ enabled: true });
 updateChatInputState();
 
 
@@ -783,6 +806,9 @@ ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: 
     appendLog("Consent granted for this tab. Room prepared locally.");
 
     connectSignaling(roomId);
+ui.enableBtn.disabled = true;
+ui.enableBtn.textContent = "Enabled";
+
   });
 
 ui.disableBtn.addEventListener("click", () => {
