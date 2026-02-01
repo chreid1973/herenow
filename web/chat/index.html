@@ -182,6 +182,23 @@
 <span id="copyToast" class="toast good" style="display:none; margin-left:8px;">Copied</span>
 
         </div>
+<label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
+  Digg Handle (no real names)
+</label>
+
+<input
+  id="displayNameInput"
+  type="text"
+  autocomplete="off"
+  spellcheck="false"
+  autocapitalize="none"
+  maxlength="24"
+  placeholder="@3HPM"
+/>
+
+<p class="faint" style="margin:6px 0 0;">
+  Not saved. Session-only.
+</p>
 
         <p class="" style="margin:10px 0 0">
           Rule: no discovery. Rooms exist only as URLs you explicitly share.
@@ -323,6 +340,9 @@ copyToast: $("copyToast"),
     // track peers we've seen (prevents hello loops; enables late-join handshake)
     seenPeers: new Set(),
 
+    // peer labels (session-only): peerId -> displayName
+    peerNames: new Map(),
+
     rtcConfig: {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -336,7 +356,14 @@ function addBubble(who, text, peerId) {
 
   const meta = document.createElement("div");
   meta.className = "metaLine";
-  meta.textContent = who === "you" ? "You" : (peerId || "Peer");
+
+  if (who === "you") {
+    const me = getDisplayName();
+    meta.textContent = "You";
+  } else {
+    const label = (peerId && state.peerNames.get(peerId)) ? state.peerNames.get(peerId) : (peerId || "Peer");
+    meta.textContent = label;
+  }
 
   const body = document.createElement("div");
   body.textContent = text;
@@ -374,6 +401,16 @@ function addBubble(who, text, peerId) {
     ui.roomInput.value = "(not yet created)";
     ui.copyBtn.disabled = true;
   }
+function getDisplayName() {
+  const el = document.getElementById("displayNameInput");
+  let raw = (el?.value || "").trim();
+
+  raw = raw.replace(/\s+/g, "");
+  raw = raw.replace(/[^@a-zA-Z0-9_.]/g, "");
+  raw = raw.slice(0, 24);
+
+  return raw || null;
+}
 
 function setStatus({ enabled }) {
   state.enabled = enabled;
@@ -456,6 +493,7 @@ function leaveSession(reason = "leave") {
   setStatus({ enabled: false });
   state.peerId = null;
   state.seenPeers.clear();
+  state.peerNames.clear();
 
   ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
   if (ui.chatFeed) ui.chatFeed.innerHTML = "";
@@ -584,22 +622,48 @@ function leaveSession(reason = "leave") {
   }
 
 function wireDataChannel(remotePeerId, dc) {
-dc.addEventListener("open", () => {
-  appendLog(`RTC: data channel open with ${remotePeerId}`);
-  updateChatInputState();
-});
+  dc.addEventListener("open", () => {
+    appendLog(`RTC: data channel open with ${remotePeerId}`);
 
+    // One-time label share (session-only)
+    try {
+      dc.send(JSON.stringify({ t: "hello", displayName: getDisplayName(), ts: Date.now() }));
+    } catch {}
 
-dc.addEventListener("close", () => {
-  appendLog(`RTC: data channel closed with ${remotePeerId}`);
-  updateChatInputState();
-});
+    updateChatInputState();
+  });
 
+  dc.addEventListener("close", () => {
+    appendLog(`RTC: data channel closed with ${remotePeerId}`);
+    updateChatInputState();
+  });
 
   dc.addEventListener("message", (ev) => {
-    const text = typeof ev.data === "string" ? ev.data : "[binary]";
-    appendLog(`${remotePeerId}: ${text}`);
-    addBubble("peer", text, remotePeerId);
+    const raw = typeof ev.data === "string" ? ev.data : "";
+    let obj = null;
+
+    // Try JSON first (new protocol). Fall back to plain text (older peers).
+    try { obj = JSON.parse(raw); } catch {}
+
+    if (obj && obj.t === "hello") {
+      const name = (obj.displayName || "").toString().trim();
+      if (name) state.peerNames.set(remotePeerId, name);
+      appendLog(`${remotePeerId}: [hello${name ? " " + name : ""}]`);
+      return;
+    }
+
+    if (obj && obj.t === "chat") {
+      const text = (obj.text ?? "").toString();
+      const name = (obj.displayName || "").toString().trim();
+      if (name) state.peerNames.set(remotePeerId, name);
+      appendLog(`${remotePeerId}: ${text}`);
+      addBubble("peer", text, remotePeerId);
+      return;
+    }
+
+    // Plain text fallback
+    appendLog(`${remotePeerId}: ${raw}`);
+    addBubble("peer", raw || "[binary]", remotePeerId);
   });
 }
 
@@ -678,12 +742,19 @@ dc.addEventListener("close", () => {
   }
 
   function broadcastChat(text) {
-    for (const [, p] of state.peers.entries()) {
-      if (p.dc && p.dc.readyState === "open") {
-        try { p.dc.send(text); } catch {}
-      }
+  const payload = JSON.stringify({
+    t: "chat",
+    text,
+    displayName: getDisplayName(),
+    ts: Date.now()
+  });
+
+  for (const [, p] of state.peers.entries()) {
+    if (p.dc && p.dc.readyState === "open") {
+      try { p.dc.send(payload); } catch {}
     }
   }
+}
 
   // ---------- handlers ----------
   ui.enableBtn.addEventListener("click", () => {
@@ -703,7 +774,9 @@ updateChatInputState();
     // Fresh peer identity per enabled session
     state.peerId = generatePeerId();
 
-    ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: off";
+    
+    state.peerNames.clear();
+ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: off";
     if (ui.chatFeed) ui.chatFeed.innerHTML = "";
 
 
