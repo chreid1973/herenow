@@ -93,11 +93,22 @@
   border-radius:12px;
   padding:12px;
   min-height:220px;
-  max-height:360px;
   overflow:auto;
   display:flex;
   flex-direction:column;
   gap:10px;
+/* Make Messages card layout stack and allow transcript to stretch */
+#messagesCard{
+  display: flex;
+  flex-direction: column;
+}
+
+/* Transcript area grows to fill available space */
+#chatFeed{
+  flex: 1;
+  min-height: 280px; /* normal mode baseline */
+}
+
 }
 
 .bubble{
@@ -167,6 +178,63 @@ body.sessionActive .chatFeed{
   min-height: 52vh;
   max-height: 52vh;
 }
+/* --- chat expand / zen mode --- */
+body.zenMode{
+  overflow:hidden;
+}
+body.zenMode .messageRow {
+  padding-bottom: 4px;
+}
+
+body.zenMode .messageRow input {
+  font-size: 15px;
+}
+
+body.zenMode #messagesCard{
+  position:fixed;
+  inset:12px;
+  z-index:9999;
+  margin:0;
+  max-width:none;
+  height:calc(100vh - 24px);
+}
+body.zenMode details,
+body.zenMode #messagesCard p.faint{
+  display:none;
+}
+
+/* Key: allow flexbox to shrink/expand properly */
+body.zenMode #chatFeed{
+  min-height:0;      /* REQUIRED for flex children */
+  height:auto;
+}
+
+/* Make the Messages card stack vertically and allow the transcript to grow */
+#messagesCard{
+  display:flex;
+  flex-direction:column;
+}
+
+/* Let the transcript fill the available space */
+#chatFeed{
+  flex:1;
+  min-height:320px;     /* normal baseline */
+  max-height:none;      /* remove any cap */
+}
+
+
+    /* --- expand button --- */
+    #fsBtn{ min-width:92px; white-space:nowrap; }
+.messageRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.messageRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 </style>
 </head>
@@ -191,13 +259,13 @@ body.sessionActive .chatFeed{
         <h2 id="statusTitle" class="sr">Session status</h2>
         <div class="row" style="justify-content:space-between">
           <div class="row">
-            <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">Idle (not opted in)</span></span>
+            <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">Not started</span></span>
             <span class="pill"><span class="faint">Networking:</span> <span id="netText">OFF</span></span>
           </div>
           <div class="row">
-            <button class="btn primary" id="enableBtn" type="button">Enable chat for this session</button>
-            <button class="btn danger" id="disableBtn" type="button" disabled>
-  Leave session (go idle)
+            <button class="btn primary" id="enableBtn" type="button">Start session</button>
+          <button class="btn danger" id="disableBtn" type="button" disabled>
+  End session
 </button>
 
           </div>
@@ -205,7 +273,7 @@ body.sessionActive .chatFeed{
 
         <div style="margin-top:12px" class="box">
           <div class="muted">
-            Consent scope: this tab only. Nothing connects until you click “Enable”.
+            This tab stays off until you start the session.
           </div>
         </div>
       </section>
@@ -213,7 +281,7 @@ body.sessionActive .chatFeed{
       <section>
         <h2 style="margin:0 0 10px; font-size:16px">Room link</h2>
         <p class="muted" style="margin:0 0 10px">
-          This is inert right now. Next step we’ll generate a room id and encode it into the URL after consent.
+          Start a session to generate an invite link.
         </p>
 
         <div class="row">
@@ -223,7 +291,7 @@ body.sessionActive .chatFeed{
 
         </div>
 <label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
-  Digg Handle (no real names)
+  Chat handle (no real names)
 </label>
 
 <input
@@ -245,10 +313,11 @@ body.sessionActive .chatFeed{
         </p>
       </section>
 
-<section>
+<section class="card" id="messagesCard">
+
   <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
   <p class="muted" style="margin:0 0 10px">
-    Consent-first chat. When connected, messages travel peer-to-peer over WebRTC.
+    Invite-only chat. Messages go directly between people in the room.
   </p>
 
   <!-- User-friendly chat transcript -->
@@ -259,14 +328,16 @@ body.sessionActive .chatFeed{
   <span id="replyText" class="faint"></span>
   <button id="replyClear" class="btn" type="button" style="padding:6px 10px;">×</button>
 </div>
-<div class="row" style="margin-top:10px">
-    <input id="msgInput" type="text" placeholder="Type a message (disabled until enabled)" disabled />
-    <button class="btn primary" id="sendBtn" type="button" disabled>Send</button>
-  </div>
+<div class="messageRow">
+  <input id="msgInput" type="text" placeholder="Type a message" />
+  <button id="sendBtn" class="btn">Send</button>
+  <button id="fsBtn" class="btn">Exit Full Screen</button>
+</div>
+
 
   <details style="margin-top:12px">
-    <summary class="faint">Debug log</summary>
-    <textarea id="log" readonly aria-label="Debug log">(idle)
+    <summary class="faint">Connection details</summary>
+    <textarea id="log" readonly aria-label="Connection details">(idle)
 - no connections
 - no signaling
 - no WebRTC
@@ -274,7 +345,7 @@ body.sessionActive .chatFeed{
   </details>
 
   <p class="faint" style="margin:10px 0 0">
-    Reminder: peers can screenshot. Ephemeral is not the same as “unrecordable.”
+    Reminder: Users can screenshot. Ephemeral is not the same as “unrecordable.”
   </p>
 </section>
 
@@ -369,6 +440,8 @@ body.sessionActive .chatFeed{
     sendBtn: $("sendBtn"),
     chatFeed: $("chatFeed"),
 copyToast: $("copyToast"),
+fsBtn: document.getElementById("fsBtn"),
+
     replyBar: document.getElementById("replyBar"),
     replyText: document.getElementById("replyText"),
     replyClear: document.getElementById("replyClear"),
@@ -539,7 +612,7 @@ function setStatus({ enabled }) {
   ui.statusDot.classList.toggle("good", enabled);
   ui.statusDot.classList.toggle("bad", false);
 
-  ui.statusText.textContent = enabled ? "Enabled (session active)" : "Idle (not opted in)";
+  ui.statusText.textContent = enabled ? "Session live" : "Not started";
   ui.enableBtn.disabled = enabled;
   ui.disableBtn.disabled = !enabled;
 
@@ -557,9 +630,9 @@ function updateChatInputState() {
   ui.sendBtn.disabled = !anyOpen;
 
   if (!state.enabled) {
-    ui.msgInput.placeholder = "Type a message (disabled until enabled)";
+    ui.msgInput.placeholder = "Start session to send messages";
   } else if (!anyOpen) {
-    ui.msgInput.placeholder = "Waiting for peer…";
+    ui.msgInput.placeholder = "Waiting for someone to join";
   } else {
     ui.msgInput.placeholder = "Type a message";
   }
@@ -612,13 +685,18 @@ function leaveSession(reason = "leave") {
   disconnectAll(reason);
 
   setStatus({ enabled: false });
-    document.body.classList.remove("sessionActive");
-state.peerId = null;
-  state.seenPeers.clear();
 
-    state.peerNames.clear();
+  // Reset Enable button UI
+  ui.enableBtn.disabled = false;
+  ui.enableBtn.textContent = "Start session";
+
+  document.body.classList.remove("sessionActive");
+  state.peerId = null;
+  state.seenPeers.clear();
+  state.peerNames.clear();
   setReplyTo(null);
-ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
+
+  ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
   if (ui.chatFeed) ui.chatFeed.innerHTML = "";
 }
 
@@ -944,6 +1022,43 @@ ui.copyBtn.addEventListener("click", async () => {
   }
 });
 
+function setFsLabel() {
+  const isFs = !!document.fullscreenElement;
+  const isZen = document.body.classList.contains("zenMode");
+  if (ui.fsBtn) ui.fsBtn.textContent = (isFs || isZen) ? "Exit Full Screen" : "Expand Chat Window";
+}
+
+async function toggleExpand() {
+  // If already in real fullscreen, exit it.
+  if (document.fullscreenElement) {
+    await document.exitFullscreen().catch(() => {});
+    setFsLabel();
+    return;
+  }
+
+  // If in zen mode, exit it.
+  if (document.body.classList.contains("zenMode")) {
+    document.body.classList.remove("zenMode");
+    setFsLabel();
+    return;
+  }
+
+  // Try real fullscreen on the Messages card.
+  const target = document.getElementById("messagesCard") || document.documentElement;
+  try {
+    await target.requestFullscreen();
+  } catch {
+    // Fullscreen blocked/unavailable -> fall back to zen mode.
+    document.body.classList.add("zenMode");
+  }
+  setFsLabel();
+}
+
+ui.fsBtn?.addEventListener("click", toggleExpand);
+
+// Keep label accurate if user hits ESC to exit fullscreen
+document.addEventListener("fullscreenchange", setFsLabel);
+setFsLabel();
 
   ui.sendBtn.addEventListener("click", () => {
     const msg = ui.msgInput.value.trim();
