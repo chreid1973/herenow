@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HereNow — Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+
+  <!-- Idle / Consent -->
+  <section id="consent">
+    <h1>HereNow</h1>
+    <p>Enable chat for this session?</p>
+    <button id="enable">Enable</button>
+    <button id="cancel">Not now</button>
+  </section>
+
+  <!-- Active (fake for now) -->
+  <section id="active" hidden>
+    <p><strong>Status:</strong> Active (simulated)</p>
+    <p>This is where chat UI will live.</p>
+    <button id="close">Close chat</button>
+  </section>
+
+  <script>
+    const consent = document.getElementById("consent");
+    const active = document.getElementById("active");
+
+    document.getElementById("enable").onclick = () => {
+      consent.hidden = true;
+      active.hidden = false;
+    };
+
+    document.getElementById("cancel").onclick = () => {
+      window.location.reload();
+    };
+
+    document.getElementById("close").onclick = () => {
+      window.location.reload();
+    };
+  </script>
+
+</body>
+</html>
