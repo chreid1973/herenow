@@ -1,44 +1,243 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HereNow — Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Consent-first, ephemeral chat. Explicit opt-in per session. Close tab = chat off." />
+  <meta name="referrer" content="no-referrer" />
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#0f1730; --text:#e9ecff; --muted:#b7c0ff; --faint:#7f8ad6;
+      --line:rgba(233,236,255,.15); --good:#47e6b1; --warn:#ffcc66; --bad:#ff6b6b; --link:#78a6ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(120,166,255,.15), transparent 60%),
+                  radial-gradient(1000px 650px at 80% 20%, rgba(71,230,177,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.5;
+    }
+    a{color:var(--link); text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px; margin:0 auto; padding:28px 18px 64px}
+    header{
+      display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      padding:18px 18px 16px; background:rgba(15,23,48,.72); border:1px solid var(--line);
+      border-radius:14px; backdrop-filter:blur(8px);
+    }
+    h1{margin:0; font-size:20px}
+    header p{margin:6px 0 0; color:var(--muted); max-width:75ch}
+    .btn{
+      display:inline-block; padding:10px 14px; border-radius:12px; border:1px solid var(--line);
+      background:rgba(255,255,255,.04); color:var(--text); font-weight:700; cursor:pointer;
+    }
+    .btn:hover{background:rgba(255,255,255,.06)}
+    .btn.primary{border-color:rgba(71,230,177,.35); background:rgba(71,230,177,.10)}
+    .btn.primary:hover{background:rgba(71,230,177,.16)}
+    .btn.danger{border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.10)}
+    .btn.danger:hover{background:rgba(255,107,107,.16)}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+    main{margin-top:16px}
+    .grid{display:grid; grid-template-columns: 1fr; gap:14px}
+    section{
+      padding:18px 18px 16px; background:rgba(15,23,48,.58); border:1px solid var(--line);
+      border-radius:14px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .muted{color:var(--muted)}
+    .faint{color:var(--faint)}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; border:1px solid var(--line);
+      background:rgba(255,255,255,.03); font-weight:700;
+    }
+    .dot{width:10px; height:10px; border-radius:999px; background:var(--warn); box-shadow:0 0 0 3px rgba(255,204,102,.10)}
+    .dot.good{background:var(--good); box-shadow:0 0 0 3px rgba(71,230,177,.10)}
+    .dot.bad{background:var(--bad); box-shadow:0 0 0 3px rgba(255,107,107,.10)}
+    .box{
+      padding:12px; border-radius:12px; border:1px solid rgba(233,236,255,.12);
+      background:rgba(0,0,0,.20);
+    }
+    textarea{
+      width:100%; min-height:150px; resize:vertical; padding:12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      line-height:1.35;
+    }
+    input[type="text"]{
+      width:min(520px,100%); padding:10px 12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+    }
+    footer{margin-top:14px; padding:14px 18px; color:var(--faint); font-size:13px}
+    .sr{position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden}
+  </style>
 </head>
+
 <body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>HereNow — Chat</h1>
+        <p>
+          This page stays idle until you explicitly opt in for this session.
+          No background activity. Close tab = chat off.
+        </p>
+      </div>
+      <div class="row">
+        <a class="btn" href="/herenow">Back to contract</a>
+      </div>
+    </header>
 
-  <!-- Idle / Consent -->
-  <section id="consent">
-    <h1>HereNow</h1>
-    <p>Enable chat for this session?</p>
-    <button id="enable">Enable</button>
-    <button id="cancel">Not now</button>
-  </section>
+    <main class="grid">
+      <section aria-labelledby="statusTitle">
+        <h2 id="statusTitle" class="sr">Session status</h2>
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">Idle (not opted in)</span></span>
+            <span class="pill"><span class="faint">Networking:</span> <span id="netText">OFF</span></span>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="enableBtn" type="button">Enable chat for this session</button>
+            <button class="btn danger" id="disableBtn" type="button" disabled>Disable (go idle)</button>
+          </div>
+        </div>
 
-  <!-- Active (fake for now) -->
-  <section id="active" hidden>
-    <p><strong>Status:</strong> Active (simulated)</p>
-    <p>This is where chat UI will live.</p>
-    <button id="close">Close chat</button>
-  </section>
+        <div style="margin-top:12px" class="box">
+          <div class="muted">
+            Consent scope: this tab only. Nothing connects until you click “Enable”.
+          </div>
+        </div>
+      </section>
 
-  <script>
-    const consent = document.getElementById("consent");
-    const active = document.getElementById("active");
+      <section>
+        <h2 style="margin:0 0 10px; font-size:16px">Room link</h2>
+        <p class="muted" style="margin:0 0 10px">
+          This is inert right now. Next step we’ll generate a room id and encode it into the URL after consent.
+        </p>
 
-    document.getElementById("enable").onclick = () => {
-      consent.hidden = true;
-      active.hidden = false;
-    };
+        <div class="row">
+          <input id="roomInput" type="text" value="(not yet created)" readonly />
+          <button class="btn" id="copyBtn" type="button" disabled>Copy link</button>
+        </div>
 
-    document.getElementById("cancel").onclick = () => {
-      window.location.reload();
-    };
+        <p class="faint" style="margin:10px 0 0">
+          Rule: no discovery. Rooms exist only as URLs you explicitly share.
+        </p>
+      </section>
 
-    document.getElementById("close").onclick = () => {
-      window.location.reload();
-    };
-  </script>
+      <section>
+        <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
+        <p class="muted" style="margin:0 0 10px">
+          Placeholder UI. No transport wired yet. When enabled, this will hook into WebRTC data channels.
+        </p>
 
+        <textarea id="log" readonly aria-label="Chat log">(idle)
+- no connections
+- no signaling
+- no WebRTC
+</textarea>
+
+        <div class="row" style="margin-top:10px">
+          <input id="msgInput" type="text" placeholder="Type a message (disabled until enabled)" disabled />
+          <button class="btn primary" id="sendBtn" type="button" disabled>Send</button>
+        </div>
+
+        <p class="faint" style="margin:10px 0 0">
+          Reminder: peers can screenshot. Ephemeral is not the same as “unrecordable.”
+        </p>
+      </section>
+
+      <footer>
+        If a feature requires background activity, persistence, or discovery, it fails the vibe check and gets vetoed.
+      </footer>
+    </main>
+  </div>
+
+<script>
+(() => {
+  // Hard rule: before consent, absolutely nothing network-ish happens.
+  // No WebSocket, no fetch, no RTCPeerConnection, no timers.
+
+  const $ = (id) => document.getElementById(id);
+
+  const ui = {
+    statusPill: $("statusPill"),
+    statusDot: $("statusDot"),
+    statusText: $("statusText"),
+    netText: $("netText"),
+    enableBtn: $("enableBtn"),
+    disableBtn: $("disableBtn"),
+    roomInput: $("roomInput"),
+    copyBtn: $("copyBtn"),
+    log: $("log"),
+    msgInput: $("msgInput"),
+    sendBtn: $("sendBtn"),
+  };
+
+  const state = {
+    enabled: false,
+    roomUrl: null,
+  };
+
+  function setStatus({ enabled }) {
+    state.enabled = enabled;
+
+    ui.statusDot.classList.toggle("good", enabled);
+    ui.statusDot.classList.toggle("bad", false);
+
+    ui.statusText.textContent = enabled ? "Enabled (session active)" : "Idle (not opted in)";
+    ui.netText.textContent = enabled ? "STILL OFF (not wired yet)" : "OFF";
+
+    ui.enableBtn.disabled = enabled;
+    ui.disableBtn.disabled = !enabled;
+
+    ui.msgInput.disabled = !enabled;
+    ui.sendBtn.disabled = !enabled;
+
+    // Room/link controls remain disabled until we implement room creation + URL encoding.
+    ui.copyBtn.disabled = true;
+  }
+
+  function appendLog(line) {
+    const t = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
+    ui.log.value += `\n[${t}] ${line}`;
+    ui.log.scrollTop = ui.log.scrollHeight;
+  }
+
+  // Consent gate actions
+  ui.enableBtn.addEventListener("click", () => {
+    setStatus({ enabled: true });
+    appendLog("Consent granted for this tab. (No networking implemented yet.)");
+    ui.log.value = ui.log.value.replace("(idle)", "(enabled)");
+  });
+
+  ui.disableBtn.addEventListener("click", () => {
+    // When we wire networking, this is where we hard-close channels + stop signaling.
+    setStatus({ enabled: false });
+    ui.roomInput.value = "(not yet created)";
+    state.roomUrl = null;
+    ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
+  });
+
+  // Placeholder send
+  ui.sendBtn.addEventListener("click", () => {
+    const msg = ui.msgInput.value.trim();
+    if (!msg) return;
+    ui.msgInput.value = "";
+    appendLog(`(local only) you: ${msg}`);
+  });
+
+  ui.msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ui.sendBtn.click();
+  });
+
+  // Initialize idle state
+  setStatus({ enabled: false });
+})();
+</script>
 </body>
 </html>
