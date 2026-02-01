@@ -74,6 +74,48 @@
     }
     footer{margin-top:14px; padding:14px 18px; color:var(--faint); font-size:13px}
     .sr{position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden}
+
+.chatFeed{
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(0,0,0,.18);
+  border-radius:12px;
+  padding:12px;
+  min-height:220px;
+  max-height:360px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.bubble{
+  max-width:80%;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(255,255,255,.05);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.bubble.you{
+  align-self:flex-end;
+  border-color:rgba(71,230,177,.30);
+  background:rgba(71,230,177,.10);
+}
+
+.bubble.peer{
+  align-self:flex-start;
+  border-color:rgba(120,166,255,.30);
+  background:rgba(120,166,255,.10);
+}
+
+.metaLine{
+  font-size:12px;
+  color:var(--faint);
+  margin-bottom:6px;
+}
+
   </style>
 </head>
 
@@ -129,27 +171,34 @@
         </p>
       </section>
 
-      <section>
-        <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
-        <p class="muted" style="margin:0 0 10px">
-          Placeholder UI. No transport wired yet. When enabled, this will hook into WebRTC data channels.
-        </p>
+<section>
+  <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
+  <p class="muted" style="margin:0 0 10px">
+    Consent-first chat. When connected, messages travel peer-to-peer over WebRTC.
+  </p>
 
-        <textarea id="log" readonly aria-label="Chat log">(idle)
+  <!-- User-friendly chat transcript -->
+  <div id="chatFeed" class="chatFeed" aria-label="Chat transcript"></div>
+
+  <div class="row" style="margin-top:10px">
+    <input id="msgInput" type="text" placeholder="Type a message (disabled until enabled)" disabled />
+    <button class="btn primary" id="sendBtn" type="button" disabled>Send</button>
+  </div>
+
+  <details style="margin-top:12px">
+    <summary class="faint">Debug log</summary>
+    <textarea id="log" readonly aria-label="Debug log">(idle)
 - no connections
 - no signaling
 - no WebRTC
 </textarea>
+  </details>
 
-        <div class="row" style="margin-top:10px">
-          <input id="msgInput" type="text" placeholder="Type a message (disabled until enabled)" disabled />
-          <button class="btn primary" id="sendBtn" type="button" disabled>Send</button>
-        </div>
+  <p class="faint" style="margin:10px 0 0">
+    Reminder: peers can screenshot. Ephemeral is not the same as “unrecordable.”
+  </p>
+</section>
 
-        <p class="faint" style="margin:10px 0 0">
-          Reminder: peers can screenshot. Ephemeral is not the same as “unrecordable.”
-        </p>
-      </section>
 
       <footer>
         If a feature requires background activity, persistence, or discovery, it fails the vibe check and gets vetoed.
@@ -159,13 +208,76 @@
 
 <script>
 (() => {
-  // Hard rule: before consent, absolutely nothing network-ish happens.
-  // No WebSocket, no fetch, no RTCPeerConnection, no timers.
+  // Consent-first invariant:
+  // - No networking until user clicks Enable
+  // - Close tab = disconnect
+  // - No polling, no timers (event-driven only)
 
+  // ---------- helpers (no ui/state use) ----------
+  function base64url(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function generateRoomId() {
+    const bytes = new Uint8Array(16); // 128-bit
+    crypto.getRandomValues(bytes);
+    return "hn_" + base64url(bytes);
+  }
+
+  function readRoomIdFromUrl() {
+    const url = new URL(window.location.href);
+    const r = url.searchParams.get("r");
+    if (!r) return null;
+    if (!/^hn_[A-Za-z0-9_-]{16,80}$/.test(r)) return null;
+    return r;
+  }
+
+  function setRoomIdInUrl(roomId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("r", roomId);
+    history.replaceState(null, "", url.toString());
+  }
+
+  function clearRoomIdFromUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("r");
+    history.replaceState(null, "", url.pathname);
+  }
+
+  function currentShareUrl(roomId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("r", roomId);
+    return url.toString();
+  }
+
+  function generatePeerId() {
+    const bytes = new Uint8Array(9);
+    crypto.getRandomValues(bytes);
+    return "p_" + base64url(bytes);
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+
+  // ---------- UI/state ----------
   const $ = (id) => document.getElementById(id);
 
   const ui = {
-    statusPill: $("statusPill"),
     statusDot: $("statusDot"),
     statusText: $("statusText"),
     netText: $("netText"),
@@ -176,12 +288,73 @@
     log: $("log"),
     msgInput: $("msgInput"),
     sendBtn: $("sendBtn"),
+    chatFeed: $("chatFeed"),
   };
 
   const state = {
     enabled: false,
     roomUrl: null,
+    roomId: null,
+    peerId: null,
+    ws: null,
+
+    // peers: peerId -> { pc, dc, makingOffer, madeOffer }
+    peers: new Map(),
+
+    // track peers we've seen (prevents hello loops; enables late-join handshake)
+    seenPeers: new Set(),
+
+    rtcConfig: {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ],
+    },
   };
+function addBubble(who, text, peerId) {
+  const wrap = document.createElement("div");
+  wrap.className = `bubble ${who}`;
+
+  const meta = document.createElement("div");
+  meta.className = "metaLine";
+  meta.textContent = who === "you" ? "You" : (peerId || "Peer");
+
+  const body = document.createElement("div");
+  body.textContent = text;
+
+  wrap.appendChild(meta);
+  wrap.appendChild(body);
+
+  ui.chatFeed.appendChild(wrap);
+  ui.chatFeed.scrollTop = ui.chatFeed.scrollHeight;
+}
+
+  function appendLog(line) {
+    const t = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
+    ui.log.value += `\n[${t}] ${line}`;
+    ui.log.scrollTop = ui.log.scrollHeight;
+  }
+
+  // Keep top-of-log status block honest (first 4 lines)
+  function setTopStatus(lines) {
+    const parts = ui.log.value.split("\n");
+    const rest = parts.slice(4);
+    ui.log.value = lines.join("\n") + "\n" + rest.join("\n");
+  }
+
+  function setRoomUi(roomId) {
+    state.roomId = roomId;
+    state.roomUrl = currentShareUrl(roomId);
+    ui.roomInput.value = state.roomUrl;
+    ui.copyBtn.disabled = !(state.enabled && state.roomUrl);
+  }
+
+  function resetRoomUi() {
+    state.roomId = null;
+    state.roomUrl = null;
+    ui.roomInput.value = "(not yet created)";
+    ui.copyBtn.disabled = true;
+  }
 
   function setStatus({ enabled }) {
     state.enabled = enabled;
@@ -190,54 +363,346 @@
     ui.statusDot.classList.toggle("bad", false);
 
     ui.statusText.textContent = enabled ? "Enabled (session active)" : "Idle (not opted in)";
-    ui.netText.textContent = enabled ? "STILL OFF (not wired yet)" : "OFF";
-
     ui.enableBtn.disabled = enabled;
     ui.disableBtn.disabled = !enabled;
 
     ui.msgInput.disabled = !enabled;
     ui.sendBtn.disabled = !enabled;
 
-    // Room/link controls remain disabled until we implement room creation + URL encoding.
-    ui.copyBtn.disabled = true;
+    ui.copyBtn.disabled = !(enabled && state.roomUrl);
+
+    if (!enabled) ui.netText.textContent = "OFF";
+    else ui.netText.textContent = state.ws ? "SIGNALING (connecting…)" : "SIGNALING (not connected)";
   }
 
-  function appendLog(line) {
-    const t = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
-    ui.log.value += `\n[${t}] ${line}`;
-    ui.log.scrollTop = ui.log.scrollHeight;
+  // ---------- signaling ----------
+  function wsUrlForRoom(roomId) {
+    const base = "wss://herenow-signal.the-geek.workers.dev/signal/";
+    return base + encodeURIComponent(roomId);
   }
 
-  // Consent gate actions
+  function sendSignal(msg) {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    try {
+      state.ws.send(JSON.stringify(msg));
+    } catch {
+      appendLog("Signaling: send failed");
+    }
+  }
+
+  function mkMsg(t, to, payload) {
+    return {
+      t,
+      room: state.roomId,
+      from: state.peerId,
+      to,
+      payload: payload ?? null,
+      ts: Date.now(),
+    };
+  }
+
+  function disconnectAll(reason = "disconnect") {
+    // Close DC/PCs
+    for (const [, p] of state.peers.entries()) {
+      try { p.dc && p.dc.close(); } catch {}
+      try { p.pc && p.pc.close(); } catch {}
+    }
+    state.peers.clear();
+
+    // Close WS
+    if (state.ws) {
+      try { appendLog(`Signaling: closing (${reason})`); state.ws.close(1000, reason); } catch {}
+      state.ws = null;
+    }
+
+    if (state.enabled) ui.netText.textContent = "SIGNALING (not connected)";
+  }
+
+  function connectSignaling(roomId) {
+    if (!state.enabled) return;
+
+    const url = wsUrlForRoom(roomId);
+    appendLog(`Signaling: connecting to ${url}`);
+
+    const ws = new WebSocket(url);
+    state.ws = ws;
+    ui.netText.textContent = "SIGNALING (connecting…)";
+
+    ws.addEventListener("open", () => {
+      appendLog(`Signaling: connected as ${state.peerId}`);
+      ui.netText.textContent = "SIGNALING (connected)";
+
+      // truthful header block
+      setTopStatus([
+        "(enabled)",
+        "- connections: 0",
+        "- signaling: connected",
+        "- WebRTC: negotiating"
+      ]);
+
+      // Announce presence (room-local)
+      sendSignal(mkMsg("hello", "*", { v: 1 }));
+    });
+
+    ws.addEventListener("message", async (ev) => {
+      let msg;
+      try {
+        msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+      } catch {
+        appendLog("Signaling: recv non-JSON (ignored)");
+        return;
+      }
+
+    
+      // Ignore other rooms / self
+      if (!msg || msg.room !== state.roomId) return;
+      if (msg.from === state.peerId) return;
+
+      // Honor targeting (broadcast or direct)
+      if (msg.to && msg.to !== "*" && msg.to !== state.peerId) return;
+
+      try {
+        await handleSignal(msg);
+      } catch {
+        appendLog(`Signaling: handler error (${msg.t})`);
+      }
+    });
+
+    ws.addEventListener("close", (ev) => {
+      appendLog(`Signaling: closed (code ${ev.code})`);
+      state.ws = null;
+      if (state.enabled) ui.netText.textContent = "SIGNALING (not connected)";
+    });
+
+    ws.addEventListener("error", () => {
+      appendLog("Signaling: error");
+    });
+  }
+
+  window.addEventListener("pagehide", () => disconnectAll("pagehide"));
+
+  // ---------- WebRTC peer management ----------
+  function shouldBeOfferer(remotePeerId) {
+    // Deterministic role to avoid glare: lower peerId initiates
+    return state.peerId < remotePeerId;
+  }
+
+  function ensurePeer(remotePeerId) {
+    let peer = state.peers.get(remotePeerId);
+    if (peer) return peer;
+
+    const pc = new RTCPeerConnection(state.rtcConfig);
+
+    peer = {
+      pc,
+      dc: null,
+      makingOffer: false,
+      madeOffer: false
+    };
+    state.peers.set(remotePeerId, peer);
+
+    pc.addEventListener("icecandidate", (ev) => {
+      if (!ev.candidate) return;
+      sendSignal(mkMsg("ice", remotePeerId, { candidate: ev.candidate }));
+    });
+
+    pc.addEventListener("connectionstatechange", () => {
+      appendLog(`RTC: ${remotePeerId} pc=${pc.connectionState}`);
+
+      if (pc.connectionState === "connected") {
+        const connectedCount = [...state.peers.values()]
+          .filter(p => p.pc && p.pc.connectionState === "connected").length;
+
+        setTopStatus([
+          "(enabled)",
+          `- connections: ${connectedCount}`,
+          "- signaling: connected",
+          "- WebRTC: connected"
+        ]);
+      }
+
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+        setTopStatus([
+          "(enabled)",
+          "- connections: 0",
+          "- signaling: connected",
+          "- WebRTC: not connected"
+        ]);
+      }
+    });
+
+    pc.addEventListener("datachannel", (ev) => {
+      peer.dc = ev.channel;
+      wireDataChannel(remotePeerId, peer.dc);
+    });
+
+    return peer;
+  }
+
+  function wireDataChannel(remotePeerId, dc) {
+    dc.addEventListener("open", () => {
+      appendLog(`RTC: data channel open with ${remotePeerId}`);
+    });
+
+    dc.addEventListener("close", () => {
+      appendLog(`RTC: data channel closed with ${remotePeerId}`);
+    });
+
+    dc.addEventListener("message", (ev) => {
+      const text = typeof ev.data === "string" ? ev.data : "[binary]";
+      appendLog(`${remotePeerId}: ${text}`);
+      addBubble("peer", text, remotePeerId);
+    });
+  }
+
+  async function createOfferTo(remotePeerId) {
+    const peer = ensurePeer(remotePeerId);
+    if (peer.makingOffer || peer.madeOffer) return;
+    peer.makingOffer = true;
+
+    try {
+      if (!peer.dc) {
+        peer.dc = peer.pc.createDataChannel("chat");
+        wireDataChannel(remotePeerId, peer.dc);
+      }
+
+      const offer = await peer.pc.createOffer();
+      await peer.pc.setLocalDescription(offer);
+
+      sendSignal(mkMsg("offer", remotePeerId, { sdp: peer.pc.localDescription }));
+      appendLog(`RTC: sent offer to ${remotePeerId}`);
+      peer.madeOffer = true;
+    } finally {
+      peer.makingOffer = false;
+    }
+  }
+
+  async function handleSignal(msg) {
+    const remotePeerId = msg.from;
+
+    if (msg.t === "hello") {
+      const firstTime = !state.seenPeers.has(remotePeerId);
+      if (firstTime) state.seenPeers.add(remotePeerId);
+
+      if (firstTime) appendLog(`Signaling: hello from ${remotePeerId}`);
+
+
+      if (firstTime) {
+        // Direct ack
+        sendSignal(mkMsg("hello", remotePeerId, { v: 1, ack: true }));
+        // Bounce to room once so late joiners definitely hear us
+        sendSignal(mkMsg("hello", "*", { v: 1, bounce: true }));
+      }
+
+      if (shouldBeOfferer(remotePeerId)) {
+        await createOfferTo(remotePeerId);
+      }
+      return;
+    }
+
+    if (msg.t === "offer") {
+      const peer = ensurePeer(remotePeerId);
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(msg.payload.sdp));
+      const answer = await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+
+      sendSignal(mkMsg("answer", remotePeerId, { sdp: peer.pc.localDescription }));
+      appendLog(`RTC: recv offer + sent answer to ${remotePeerId}`);
+      return;
+    }
+
+    if (msg.t === "answer") {
+      const peer = ensurePeer(remotePeerId);
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(msg.payload.sdp));
+      appendLog(`RTC: recv answer from ${remotePeerId}`);
+      return;
+    }
+
+    if (msg.t === "ice") {
+      const peer = ensurePeer(remotePeerId);
+      if (msg.payload && msg.payload.candidate) {
+        try {
+          await peer.pc.addIceCandidate(new RTCIceCandidate(msg.payload.candidate));
+        } catch {}
+      }
+      return;
+    }
+  }
+
+  function broadcastChat(text) {
+    for (const [, p] of state.peers.entries()) {
+      if (p.dc && p.dc.readyState === "open") {
+        try { p.dc.send(text); } catch {}
+      }
+    }
+  }
+
+  // ---------- handlers ----------
   ui.enableBtn.addEventListener("click", () => {
     setStatus({ enabled: true });
-    appendLog("Consent granted for this tab. (No networking implemented yet.)");
-    ui.log.value = ui.log.value.replace("(idle)", "(enabled)");
+
+    // Reuse roomId if present (A is correct)
+    let roomId = readRoomIdFromUrl();
+    if (!roomId) {
+      roomId = generateRoomId();
+      setRoomIdInUrl(roomId);
+    }
+
+    setRoomUi(roomId);
+
+    // Fresh peer identity per enabled session
+    state.peerId = generatePeerId();
+
+    ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: off";
+    if (ui.chatFeed) ui.chatFeed.innerHTML = "";
+    appendLog("Consent granted for this tab. Room prepared locally.");
+
+    connectSignaling(roomId);
   });
 
   ui.disableBtn.addEventListener("click", () => {
-    // When we wire networking, this is where we hard-close channels + stop signaling.
+    disconnectAll("disabled");
     setStatus({ enabled: false });
-    ui.roomInput.value = "(not yet created)";
-    state.roomUrl = null;
+    resetRoomUi();
+    clearRoomIdFromUrl();
+
+    state.peerId = null;
+    state.seenPeers.clear();
+
     ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
+    if (ui.chatFeed) ui.chatFeed.innerHTML = "";
   });
 
-  // Placeholder send
+  ui.copyBtn.addEventListener("click", async () => {
+    if (!state.enabled || !state.roomUrl) return;
+    try {
+      await copyText(state.roomUrl);
+      appendLog("Copied room link to clipboard.");
+    } catch {
+      appendLog("Copy failed (clipboard permissions?). You can manually copy the URL.");
+    }
+  });
+
   ui.sendBtn.addEventListener("click", () => {
     const msg = ui.msgInput.value.trim();
     if (!msg) return;
     ui.msgInput.value = "";
-    appendLog(`(local only) you: ${msg}`);
+    appendLog(`you: ${msg}`);
+    addBubble("you", msg);
+    broadcastChat(msg);
   });
 
   ui.msgInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") ui.sendBtn.click();
   });
 
-  // Initialize idle state
+  // init inert
   setStatus({ enabled: false });
+  resetRoomUi();
 })();
 </script>
+
+
+
 </body>
 </html>

@@ -5,7 +5,8 @@ export default {
     const url = new URL(request.url);
 
     // WebSocket endpoint: /signal/<room_id>
-    const match = url.pathname.match(/^\/signal\/([A-Za-z0-9]{6,64})$/);
+    const match = url.pathname.match(/^\/signal\/(hn_[A-Za-z0-9_-]{16,80})$/);
+
     if (!match) return new Response("Not found", { status: 404 });
 
     // Require WebSocket upgrade
