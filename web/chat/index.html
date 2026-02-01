@@ -128,7 +128,47 @@
   margin-bottom:6px;
 }
 
-  </style>
+  /* --- sender accents (session-only) --- */
+.bubble.peer{
+  border-left:4px solid var(--who, rgba(255,255,255,.15));
+  padding-left:10px;
+}
+
+.metaLine{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.metaLine::before{
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: var(--who, rgba(255,255,255,.25));
+  flex:0 0 auto;
+}
+
+/* --- reply bar --- */
+.replyBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 8px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(255,255,255,.04);
+}
+
+/* --- optional: enlarge chat feed when session active --- */
+body.sessionActive .chatFeed{
+  min-height: 52vh;
+  max-height: 52vh;
+}
+
+</style>
 </head>
 
 <body>
@@ -165,7 +205,7 @@
 
         <div style="margin-top:12px" class="box">
           <div class="muted">
-           This tab connects only after you explicitly enable the session.
+            Consent scope: this tab only. Nothing connects until you click “Enable”.
           </div>
         </div>
       </section>
@@ -183,7 +223,7 @@
 
         </div>
 <label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
-  Chat Handle (no real names)
+  Digg Handle (no real names)
 </label>
 
 <input
@@ -193,7 +233,7 @@
   spellcheck="false"
   autocapitalize="none"
   maxlength="24"
-  placeholder="Optional — e.g. @3HPM (max 24)"
+  placeholder="@3HPM"
 />
 
 <p class="faint" style="margin:6px 0 0;">
@@ -214,7 +254,12 @@
   <!-- User-friendly chat transcript -->
   <div id="chatFeed" class="chatFeed" aria-label="Chat transcript"></div>
 
-  <div class="row" style="margin-top:10px">
+  
+<div id="replyBar" class="replyBar" style="display:none;">
+  <span id="replyText" class="faint"></span>
+  <button id="replyClear" class="btn" type="button" style="padding:6px 10px;">×</button>
+</div>
+<div class="row" style="margin-top:10px">
     <input id="msgInput" type="text" placeholder="Type a message (disabled until enabled)" disabled />
     <button class="btn primary" id="sendBtn" type="button" disabled>Send</button>
   </div>
@@ -253,14 +298,6 @@
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
-let EXT_ENABLED = false;
-
-window.addEventListener("message", (ev) => {
-  if (!ev?.data || ev.data.source !== "herenow-extension") return;
-  if (ev.data.type === "enable-session") {
-    EXT_ENABLED = true;
-  }
-});
 
   function generateRoomId() {
     const bytes = new Uint8Array(16); // 128-bit
@@ -332,7 +369,9 @@ window.addEventListener("message", (ev) => {
     sendBtn: $("sendBtn"),
     chatFeed: $("chatFeed"),
 copyToast: $("copyToast"),
-
+    replyBar: document.getElementById("replyBar"),
+    replyText: document.getElementById("replyText"),
+    replyClear: document.getElementById("replyClear"),
   };
 
   const state = {
@@ -348,9 +387,9 @@ copyToast: $("copyToast"),
     // track peers we've seen (prevents hello loops; enables late-join handshake)
     seenPeers: new Set(),
 
-    // peer labels (session-only): peerId -> displayName
-    peerNames: new Map(),
 
+    // peer labels (session-only): peerId -> handle
+    peerNames: new Map(),
     rtcConfig: {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -358,7 +397,40 @@ copyToast: $("copyToast"),
       ],
     },
   };
-function addBubble(who, text, peerId) {
+// --- per-sender color helpers (session-only) ---
+function hashHue(str) {
+  let h = 0;
+  const s = String(str || "");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function peerColor(key) {
+  const hue = hashHue(key || "peer");
+  return `hsl(${hue} 65% 60%)`;
+}
+
+// --- reply state (session-only) ---
+let replyTo = null; // { peerId, name, text }
+
+function setReplyTo(obj) {
+  replyTo = obj;
+  if (!obj) {
+    ui.replyBar.style.display = "none";
+    ui.replyText.textContent = "";
+    return;
+  }
+  ui.replyBar.style.display = "flex";
+  const snippet = String(obj.text || "").trim().slice(0, 80);
+  ui.replyText.textContent = `Replying to ${obj.name}: “${snippet}${snippet.length >= 80 ? "…" : ""}”`;
+}
+
+function makeMsgId() {
+  try { return crypto.randomUUID(); } catch {}
+  return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+}
+
+  function addBubble(who, text, peerId, reply) {
   const wrap = document.createElement("div");
   wrap.className = `bubble ${who}`;
 
@@ -367,17 +439,45 @@ function addBubble(who, text, peerId) {
 
   if (who === "you") {
     const me = getDisplayName();
-    meta.textContent = "You";
+    meta.textContent = me ? `You (${me})` : "You";
   } else {
-    const label = (peerId && state.peerNames.get(peerId)) ? state.peerNames.get(peerId) : (peerId || "Peer");
+    const label =
+      (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId)
+      : (peerId || "Peer");
+
     meta.textContent = label;
+
+    // Stable accent per sender (prefer handle if known, else peerId)
+    const colorKey = (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId) : peerId;
+    wrap.style.setProperty("--who", peerColor(colorKey || label));
   }
 
   const body = document.createElement("div");
   body.textContent = text;
 
   wrap.appendChild(meta);
+
+  // Optional reply context line (tiny quote, no threads)
+  if (reply && reply.name && reply.text) {
+    const q = document.createElement("div");
+    q.className = "faint";
+    q.style.margin = "6px 0 8px";
+    const snippet = String(reply.text).trim().slice(0, 80);
+    q.textContent = `↪ replying to ${reply.name}: “${snippet}${snippet.length >= 80 ? "…" : ""}”`;
+    wrap.appendChild(q);
+  }
+
   wrap.appendChild(body);
+
+  // Click-to-reply (lightweight context)
+  wrap.addEventListener("click", () => {
+    if (who === "you") return;
+    const name =
+      (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId)
+      : (peerId || "Peer");
+    setReplyTo({ peerId, name, text: text });
+    ui.msgInput?.focus();
+  });
 
   ui.chatFeed.appendChild(wrap);
   ui.chatFeed.scrollTop = ui.chatFeed.scrollHeight;
@@ -389,20 +489,18 @@ function addBubble(who, text, peerId) {
     ui.log.scrollTop = ui.log.scrollHeight;
   }
 
-  // ---- optional extension bridge (keeps web-only flow working) ----
-  // If the HereNow extension is installed, it may send a one-time message after user consents in its overlay.
-  // We treat that as an optional convenience: it can auto-trigger the normal page "Enable" button.
-  window.addEventListener("message", (ev) => {
-    const d = ev && ev.data;
-    if (!d || d.source !== "herenow-extension") return;
-    if (d.type === "enable-session") {
-      appendLog("Extension consent received for this tab.");
-      // Optional convenience: trigger the existing page enable flow
-      if (ui.enableBtn && !state.consentGranted) {
-        ui.enableBtn.click();
-      }
-    }
-  });
+
+// ---- optional extension bridge ----
+// If the HereNow extension is installed, it may send a one-time message after user consents in its overlay.
+// Web-only users can still click the page Enable button normally.
+window.addEventListener("message", (ev) => {
+  const d = ev && ev.data;
+  if (!d || d.source !== "herenow-extension") return;
+  if (d.type === "enable-session") {
+    appendLog("Extension consent received for this tab.");
+    if (ui.enableBtn && !state.enabled) ui.enableBtn.click();
+  }
+});
 
   // Keep top-of-log status block honest (first 4 lines)
   function setTopStatus(lines) {
@@ -514,11 +612,13 @@ function leaveSession(reason = "leave") {
   disconnectAll(reason);
 
   setStatus({ enabled: false });
-  state.peerId = null;
+    document.body.classList.remove("sessionActive");
+state.peerId = null;
   state.seenPeers.clear();
-  state.peerNames.clear();
 
-  ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
+    state.peerNames.clear();
+  setReplyTo(null);
+ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
   if (ui.chatFeed) ui.chatFeed.innerHTML = "";
 }
 
@@ -680,13 +780,14 @@ function wireDataChannel(remotePeerId, dc) {
       const name = (obj.displayName || "").toString().trim();
       if (name) state.peerNames.set(remotePeerId, name);
       appendLog(`${remotePeerId}: ${text}`);
-      addBubble("peer", text, remotePeerId);
+      addBubble("peer", text, remotePeerId, obj.replyTo || null);
       return;
     }
 
     // Plain text fallback
-    appendLog(`${remotePeerId}: ${raw}`);
-    addBubble("peer", raw || "[binary]", remotePeerId);
+    const text = raw || "[binary]";
+    appendLog(`${remotePeerId}: ${text}`);
+    addBubble("peer", text, remotePeerId, null);
   });
 }
 
@@ -767,8 +868,10 @@ function wireDataChannel(remotePeerId, dc) {
   function broadcastChat(text) {
   const payload = JSON.stringify({
     t: "chat",
+    id: makeMsgId(),
     text,
     displayName: getDisplayName(),
+    replyTo: replyTo ? { name: replyTo.name, text: String(replyTo.text || "").trim().slice(0, 80) } : null,
     ts: Date.now()
   });
 
@@ -780,8 +883,12 @@ function wireDataChannel(remotePeerId, dc) {
 }
 
   // ---------- handlers ----------
-  ui.enableBtn.addEventListener("click", () => {
-setStatus({ enabled: true });
+  
+  ui.replyClear.addEventListener("click", () => setReplyTo(null));
+ui.enableBtn.addEventListener("click", () => {
+    setStatus({ enabled: true });
+    document.body.classList.add("sessionActive");
+    ui.enableBtn.textContent = "Enabled";
 updateChatInputState();
 
 
@@ -795,20 +902,17 @@ updateChatInputState();
     setRoomUi(roomId);
 
     // Fresh peer identity per enabled session
+    state.peerNames.clear();
+
     state.peerId = generatePeerId();
 
-    
-    state.peerNames.clear();
-ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: off";
+    ui.log.value = "(enabled)\n- connections: 0\n- signaling: connecting\n- WebRTC: off";
     if (ui.chatFeed) ui.chatFeed.innerHTML = "";
 
 
     appendLog("Consent granted for this tab. Room prepared locally.");
 
     connectSignaling(roomId);
-ui.enableBtn.disabled = true;
-ui.enableBtn.textContent = "Enabled";
-
   });
 
 ui.disableBtn.addEventListener("click", () => {
@@ -846,8 +950,9 @@ ui.copyBtn.addEventListener("click", async () => {
     if (!msg) return;
     ui.msgInput.value = "";
     appendLog(`you: ${msg}`);
-    addBubble("you", msg);
+    addBubble("you", msg, state.peerId, replyTo ? { name: replyTo.name, text: String(replyTo.text || "").trim().slice(0, 80) } : null);
     broadcastChat(msg);
+    setReplyTo(null);
   });
 
   ui.msgInput.addEventListener("keydown", (e) => {
