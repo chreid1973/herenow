@@ -1,0 +1,25 @@
+/**
+ * Wrangler configuration for HereNow signaling (Durable Objects + WebSockets)
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "herenow-signal",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-01-28",
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "HereNowRoom"
+      }
+    ]
+  },
+
+"migrations": [
+  { "tag": "v1", "new_sqlite_classes": ["HereNowRoom"] }
+],
+
+
+  "observability": { "enabled": true }
+}
