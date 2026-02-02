@@ -1,0 +1,1829 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HereNow — Chat</title>
+  <meta name="description" content="Consent-first, ephemeral chat. Explicit opt-in per session. Close tab = chat off." />
+  <meta name="referrer" content="no-referrer" />
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#0f1730; --text:#e9ecff; --muted:#b7c0ff; --faint:#7f8ad6;
+      --line:rgba(233,236,255,.15); --good:#47e6b1; --warn:#ffcc66; --bad:#ff6b6b; --link:#78a6ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(120,166,255,.15), transparent 60%),
+                  radial-gradient(1000px 650px at 80% 20%, rgba(71,230,177,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.5;
+    }
+    a{color:var(--link); text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px; margin:0 auto; padding:28px 18px 64px}
+    header{
+      display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      padding:18px 18px 16px; background:rgba(15,23,48,.72); border:1px solid var(--line);
+      border-radius:14px; backdrop-filter:blur(8px);
+    }
+    h1{margin:0; font-size:20px}
+    header p{margin:6px 0 0; color:var(--muted); max-width:75ch}
+    .btn{
+      display:inline-block; padding:10px 14px; border-radius:12px; border:1px solid var(--line);
+      background:rgba(255,255,255,.04); color:var(--text); font-weight:700; cursor:pointer;
+    }
+    .btn:hover{background:rgba(255,255,255,.06)}
+    .btn.primary{border-color:rgba(71,230,177,.35); background:rgba(71,230,177,.10)}
+    .btn.primary:hover{background:rgba(71,230,177,.16)}
+    .btn.danger{border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.10)}
+    .btn.danger:hover{background:rgba(255,107,107,.16)}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+    main{margin-top:16px}
+    .grid{display:grid; grid-template-columns: 1fr; gap:14px}
+    section{
+      padding:18px 18px 16px; background:rgba(15,23,48,.58); border:1px solid var(--line);
+      border-radius:14px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .muted{color:var(--muted)}
+    .faint{color:var(--faint)}
+.toast {
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(233,236,255,.16);
+  background:rgba(0,0,0,.25);
+  font-weight:700;
+  font-size:12px;
+}
+.toast.good { border-color:rgba(71,230,177,.35); color:var(--good); }
+.toast.bad  { border-color:rgba(255,107,107,.35); color:var(--bad); }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; border:1px solid var(--line);
+      background:rgba(255,255,255,.03); font-weight:700;
+    }
+    .dot{width:10px; height:10px; border-radius:999px; background:var(--warn); box-shadow:0 0 0 3px rgba(255,204,102,.10)}
+    .dot.good{background:var(--good); box-shadow:0 0 0 3px rgba(71,230,177,.10)}
+    .dot.bad{background:var(--bad); box-shadow:0 0 0 3px rgba(255,107,107,.10)}
+    .box{
+      padding:12px; border-radius:12px; border:1px solid rgba(233,236,255,.12);
+      background:rgba(0,0,0,.20);
+    }
+    textarea{
+      width:100%; min-height:150px; resize:vertical; padding:12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      line-height:1.35;
+    }
+    input[type="text"]{
+      width:min(520px,100%); padding:10px 12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+    }
+    footer{margin-top:14px; padding:14px 18px; color:var(--faint); font-size:13px}
+    .sr{position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden}
+
+.chatFeed{
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(0,0,0,.18);
+  border-radius:12px;
+  padding:12px;
+  min-height:220px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.bubble{
+  max-width:80%;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(255,255,255,.05);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.bubble.you{
+  align-self:flex-end;
+  border-color:rgba(71,230,177,.30);
+  background:rgba(71,230,177,.10);
+}
+
+.bubble.peer{
+  align-self:flex-start;
+  border-color:rgba(120,166,255,.30);
+  background:rgba(120,166,255,.10);
+}
+
+.metaLine{
+  font-size:12px;
+  color:var(--faint);
+  margin-bottom:6px;
+}
+
+  /* --- sender accents (session-only) --- */
+.bubble.peer{
+  border-left:4px solid var(--who, rgba(255,255,255,.15));
+  padding-left:10px;
+}
+
+.metaLine{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.metaLine::before{
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: var(--who, rgba(255,255,255,.25));
+  flex:0 0 auto;
+}
+
+/* --- reply bar --- */
+.replyBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 8px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(255,255,255,.04);
+}
+
+/* --- optional: enlarge chat feed when session active --- */
+body.sessionActive .chatFeed{
+  min-height: 52vh;
+  max-height: 52vh;
+}
+/* --- chat expand / zen mode --- */
+body.zenMode{
+  overflow:hidden;
+}
+body.zenMode .messageRow {
+  padding-bottom: 4px;
+}
+
+body.zenMode .messageRow input {
+  font-size: 15px;
+}
+
+body.zenMode #messagesCard{
+  position:fixed;
+  inset:12px;
+  z-index:9999;
+  margin:0;
+  max-width:none;
+  height:calc(100vh - 24px);
+}
+body.zenMode details,
+body.zenMode #messagesCard p.faint{
+  display:none;
+}
+
+/* Key: allow flexbox to shrink/expand properly */
+body.zenMode #chatFeed{
+  min-height:0;      /* REQUIRED for flex children */
+  height:auto;
+}
+
+/* Make the Messages card stack vertically and allow the transcript to grow */
+#messagesCard{
+  display:flex;
+  flex-direction:column;
+}
+
+/* Let the transcript fill the available space */
+#chatFeed{
+  flex:1;
+  min-height:320px;     /* normal baseline */
+  max-height:none;      /* remove any cap */
+}
+
+
+    /* --- expand button --- */
+    #fsBtn{ min-width:92px; white-space:nowrap; }
+.messageRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.messageRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+
+.typingLine{
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(255,255,255,.03);
+  display:inline-block;
+}
+
+
+.peopleRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 10px;
+  border-radius:12px;
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(255,255,255,.03);
+}
+.peopleRow .left{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.peopleRow .name{
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.peopleRow .sub{
+  font-size:12px;
+  color:var(--faint);
+}
+.peopleRow .actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.smallBtn{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(233,236,255,.16);
+  background:rgba(0,0,0,.12);
+  color:var(--text);
+  font-weight:800;
+  cursor:pointer;
+}
+.smallBtn:hover{background:rgba(255,255,255,.06)}
+.smallBtn.danger{
+  border-color:rgba(255,107,107,.35);
+  background:rgba(255,107,107,.10);
+}
+.smallBtn.danger:hover{background:rgba(255,107,107,.16)}
+.smallBtn:disabled{opacity:.55; cursor:not-allowed}
+
+</style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>HereNow — Chat</h1>
+        <p>
+          Nothing happens until you turn chat on for this tab. No background activity. Close this tab to leave.
+        </p>
+      </div>
+      <div class="row">
+        <a class="btn" href="/herenow">Back to info</a>
+      </div>
+    </header>
+
+    <div id="fatalBox" class="box" style="display:none; border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.10); margin-top:14px;">
+  <div style="font-weight:900; margin-bottom:6px;">HereNow hit a script error</div>
+  <div class="faint" id="fatalMsg"></div>
+  <div class="faint" style="margin-top:8px;">Open DevTools → Console for the full stack trace.</div>
+</div>
+
+<main class="grid">
+      <section aria-labelledby="statusTitle">
+        <h2 id="statusTitle" class="sr">Session status</h2>
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">Off</span></span>
+            <span class="pill"><span class="faint">Connection:</span> <span id="netText">OFF</span></span>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="enableBtn" type="button">Turn chat on</button>
+          <button class="btn danger" id="disableBtn" type="button" disabled>
+  Turn chat off
+</button>
+
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="box">
+          <div class="muted">
+            This tab stays off until you start the session.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 style="margin:0 0 10px; font-size:16px">Step 1 — Room setup</h2>
+        <p class="muted" style="margin:0 0 10px">
+          Turn chat on to generate a share link.
+        </p>
+
+  <div id="preKnockGate" class="box" style="display:none; margin-top:10px;">
+    <div style="font-weight:800; margin-bottom:6px;">This room requires a passphrase</div>
+    <div class="faint">Enter the passphrase first. Then you can turn chat on.</div>
+  </div>
+
+        <div class="row">
+          <input id="roomInput" type="text" value="(not yet created)" readonly />
+          <button class="btn" id="copyBtn" type="button" disabled>Copy</button>
+<span id="copyToast" class="toast good" style="display:none; margin-left:8px;">Copied</span>
+
+        </div>
+<label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
+  Display name (optional)
+</label>
+
+<input
+  id="displayNameInput"
+  type="text"
+  autocomplete="off"
+  spellcheck="false"
+  autocapitalize="none"
+  maxlength="24"
+  placeholder="@3HPM"
+/>
+
+<p class="faint" style="margin:6px 0 0;">
+  Not saved. Only used in this chat.
+</p>
+
+  <div id="knockStep1" style="display:none; margin-top:12px;">
+    <label class="faint" for="knockPassStep1" style="display:block; margin:0 0 6px;">Passphrase (required for this room)</label>
+    <input id="knockPassStep1" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Enter passphrase" />
+    <div class="faint" style="margin-top:6px;">Not saved. Used only to unlock chat for this session.</div>
+  </div>
+
+
+        <p class="" style="margin:10px 0 0">
+          Only people you share this link with can join. There’s no public list and no “who’s online.”
+        </p>
+      </section>
+
+<section class="card" id="messagesCard" style="display:none;">
+
+  <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
+  <p class="muted" style="margin:0 0 10px">
+    Private chat for people with the link. Messages go directly between you and the people you’re connected to.
+  </p>
+
+  <!-- User-friendly chat transcript -->
+  
+  <details id="peopleDrawer" style="margin:10px 0 10px">
+    <summary class="faint">People & room controls</summary>
+
+    <div class="box" style="margin-top:10px">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div style="min-width:260px; flex:1">
+          <div style="font-weight:800; margin-bottom:6px;">Room controls</div>
+          <div class="faint" id="roomControlsHint">These controls affect only this tab session.</div>
+
+          <div class="row" style="margin-top:10px; align-items:flex-start;">
+            <label class="pill" style="cursor:pointer; user-select:none;">
+              <input id="knockToggle" type="checkbox" style="margin-right:8px;" />
+              Knock mode (require passphrase)
+            </label>
+            <button class="btn danger" id="resetRoomBtn" type="button" disabled>New link (reset room)</button>
+          </div>
+
+          <div id="knockBox" style="margin-top:10px; display:none;">
+            <label class="faint" for="knockPass" style="display:block; margin:0 0 6px;">Passphrase (not in link)</label>
+            <input id="knockPass" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Enter passphrase" />
+            <div class="faint" style="margin-top:6px;">
+              People can connect with the link, but can’t chat until they know the passphrase. Nothing is saved.
+            </div>
+          </div>
+        </div>
+
+        <div style="min-width:260px; flex:1">
+          <div style="font-weight:800; margin-bottom:6px;">People</div>
+          <div class="faint">Mute only hides them for you. Kick (disconnect + 60-minute deny) is host-only.</div>
+          <div id="peopleList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div id="chatFeed" class="chatFeed" aria-label="Chat transcript"></div>
+  <div id="typingLine" class="typingLine faint" style="display:none; margin:8px 0 0;"></div>
+
+
+  
+<div id="replyBar" class="replyBar" style="display:none;">
+  <span id="replyText" class="faint"></span>
+  <button id="replyClear" class="btn" type="button" style="padding:6px 10px;">×</button>
+</div>
+<div class="messageRow">
+  <input id="msgInput" type="text" placeholder="Type a message" />
+  <button id="sendBtn" class="btn">Send</button>
+  <button id="fsBtn" class="btn">Expand Chat Window</button>
+</div>
+
+  <div class="row" style="margin-top:12px; align-items:center; gap:10px; justify-content:space-between;">
+    <div class="faint" style="min-width:90px;">Share link</div>
+    <input id="roomInput2" type="text" value="(not yet created)" readonly style="flex:1; min-width:220px;" />
+    <button class="btn" id="copyBtn2" type="button" disabled>Copy</button>
+    <span id="copyToast2" class="toast good" style="display:none; margin-left:8px;">Copied</span>
+  </div>
+
+
+  <details style="margin-top:12px">
+    <summary class="faint">Connection details</summary>
+    <textarea id="log" readonly aria-label="Connection details">(idle)
+- no connections
+- no intro relay
+- no direct connection
+</textarea>
+  </details>
+
+  <p class="faint" style="margin:10px 0 0">
+    Reminder: Users can screenshot. Ephemeral is not the same as “unrecordable.”
+  </p>
+</section>
+
+
+      <footer>
+        If a feature needs background activity, saved state, or discovery, it doesn’t belong here.
+      </footer>
+    </main>
+  </div>
+
+<script>
+(() => {
+  try {
+
+  // Consent-first invariant:
+  // - No networking until user clicks Enable
+  // - Close tab = disconnect
+  // - No polling, no timers (event-driven only)
+
+  // ---------- helpers (no ui/state use) ----------
+  function base64url(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function generateRoomId() {
+    const bytes = new Uint8Array(16); // 128-bit
+    crypto.getRandomValues(bytes);
+    return "hn_" + base64url(bytes);
+  }
+
+  
+function readKnockFlagFromUrl(){
+  try{
+    const url = new URL(window.location.href);
+    return url.searchParams.get("knock") === "1";
+  }catch{ return false; }
+}
+
+function setKnockFlagInUrl(on){
+  const url = new URL(window.location.href);
+  if (on) url.searchParams.set("knock","1");
+  else url.searchParams.delete("knock");
+  history.replaceState(null, "", url.toString());
+}
+
+function readRoomIdFromUrl() {
+    const url = new URL(window.location.href);
+    const r = url.searchParams.get("r");
+    if (!r) return null;
+    if (!/^hn_[A-Za-z0-9_-]{16,80}$/.test(r)) return null;
+    return r;
+  }
+
+  function setRoomIdInUrl(roomId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("r", roomId);
+    // Preserve knock flag if present
+    if (url.searchParams.get("knock") === "1") url.searchParams.set("knock","1");
+    history.replaceState(null, "", url.toString());
+  }
+
+  function clearRoomIdFromUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("r");
+    history.replaceState(null, "", url.pathname);
+  }
+
+  function currentShareUrl(roomId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("r", roomId);
+    if (url.searchParams.get("knock") === "1") url.searchParams.set("knock","1");
+    return url.toString();
+  }
+
+  function generatePeerId() {
+    const bytes = new Uint8Array(9);
+    crypto.getRandomValues(bytes);
+    return "p_" + base64url(bytes);
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+
+  // ---------- UI/state ----------
+  const $ = (id) => document.getElementById(id);
+
+  const ui = {
+    statusDot: $("statusDot"),
+    statusText: $("statusText"),
+    netText: $("netText"),
+    enableBtn: $("enableBtn"),
+    disableBtn: $("disableBtn"),
+    roomInput: $("roomInput"),
+    roomInput2: $("roomInput2"),
+    copyBtn2: $("copyBtn2"),
+    copyToast2: $("copyToast2"),
+    copyBtn: $("copyBtn"),
+    log: $("log"),
+    msgInput: $("msgInput"),
+    sendBtn: $("sendBtn"),
+    chatFeed: $("chatFeed"),
+    typingLine: $("typingLine"),
+copyToast: $("copyToast"),
+fsBtn: document.getElementById("fsBtn"),
+
+    replyBar: document.getElementById("replyBar"),
+    replyText: document.getElementById("replyText"),
+    replyClear: document.getElementById("replyClear"),
+    peopleDrawer: document.getElementById("peopleDrawer"),
+    peopleList: document.getElementById("peopleList"),
+    resetRoomBtn: document.getElementById("resetRoomBtn"),
+    knockToggle: document.getElementById("knockToggle"),
+    knockBox: document.getElementById("knockBox"),
+    knockPass: document.getElementById("knockPass"),
+    roomControlsHint: document.getElementById("roomControlsHint"),
+  };
+
+  // ---------- typing indicator (ephemeral, per-connection only) ----------
+  // Design rules:
+  // - in-memory only (no storage, no logs)
+  // - scoped to active peers on open data channels
+  // - no presence/roster: auto-hides quickly via timeout
+  const typingState = new Map(); // peerId -> { name, timer }
+
+  const TYPING_TTL_MS = 2500;
+  const TYPING_SEND_THROTTLE_MS = 900;
+  let lastTypingSentAt = 0;
+
+  function formatTyping(names) {
+    const clean = names.filter(Boolean);
+    if (!clean.length) return "";
+    if (clean.length === 1) return `${clean[0]} is typing…`;
+    if (clean.length === 2) return `${clean[0]} and ${clean[1]} are typing…`;
+    return `${clean.slice(0,2).join(", ")} and ${clean.length - 2} more are typing…`;
+  }
+
+  function renderTyping() {
+    if (!ui.typingLine) return;
+    const names = [];
+    for (const v of typingState.values()) names.push(v.name);
+    const msg = formatTyping(names);
+    if (!msg) {
+      ui.typingLine.style.display = "none";
+      ui.typingLine.textContent = "";
+      return;
+    }
+    ui.typingLine.textContent = msg;
+    ui.typingLine.style.display = "inline-block";
+  }
+
+  function clearTyping(peerId) {
+    const cur = typingState.get(peerId);
+    if (cur && cur.timer) clearTimeout(cur.timer);
+    typingState.delete(peerId);
+    renderTyping();
+  }
+
+  function noteTyping(peerId, name) {
+    // Reset TTL timer; auto-hide ensures this can't become presence.
+    const prev = typingState.get(peerId);
+    if (prev && prev.timer) clearTimeout(prev.timer);
+
+    const t = setTimeout(() => {
+      typingState.delete(peerId);
+      renderTyping();
+    }, TYPING_TTL_MS);
+
+    typingState.set(peerId, { name: name || peerId || "Someone", timer: t });
+    renderTyping();
+  }
+
+  function sendTyping() {
+    const now = Date.now();
+    if (now - lastTypingSentAt < TYPING_SEND_THROTTLE_MS) return;
+    lastTypingSentAt = now;
+
+    const payload = JSON.stringify({
+      t: "typing",
+      displayName: getDisplayName(),
+      ts: now
+    });
+
+    for (const [, p] of state.peers.entries()) {
+      if (p.dc && p.dc.readyState === "open") {
+        try { p.dc.send(payload); } catch {}
+      }
+    }
+  }
+
+  // ---------- abuse brakes (session-only, no persistence) ----------
+  const MAX_PEERS = 8;
+
+  const MAX_TEXT_CHARS = 2000;          // outgoing/incoming displayed text cap
+  const MAX_PAYLOAD_CHARS = 8000;       // raw JSON string cap before parsing
+  const MAX_CHAT_PER_10S = 8;           // per-peer rate limit
+  const WINDOW_MS = 10_000;
+
+  // deny list: peerId -> denyUntil (ms). In-memory only.
+  const denyUntil = new Map(); // 60-min deny per session
+  const DENY_MS = 60 * 60 * 1000;
+
+  // mute list: peerId -> boolean (in-memory)
+  const muted = new Set();
+
+  // per-peer rate window
+  const rate = new Map(); // peerId -> [timestamps]
+
+  function nowMs(){ return Date.now(); }
+
+  function isDenied(peerId){
+    const until = denyUntil.get(peerId) || 0;
+    if (until && until > nowMs()) return true;
+    if (until && until <= nowMs()) denyUntil.delete(peerId);
+    return false;
+  }
+
+  function bumpRate(peerId){
+    const t = nowMs();
+    const arr = rate.get(peerId) || [];
+    const kept = arr.filter(x => (t - x) <= WINDOW_MS);
+    kept.push(t);
+    rate.set(peerId, kept);
+    return kept.length;
+  }
+
+  function safeText(s){
+    const txt = (s ?? "").toString();
+    return txt.length > MAX_TEXT_CHARS ? (txt.slice(0, MAX_TEXT_CHARS) + "…") : txt;
+  }
+
+  function dropPeer(remotePeerId, why){
+    const p = state.peers.get(remotePeerId);
+    if (p){
+      try { p.dc && p.dc.close(); } catch {}
+      try { p.pc && p.pc.close(); } catch {}
+      state.peers.delete(remotePeerId);
+    }
+    clearTyping(remotePeerId);
+    rate.delete(remotePeerId);
+    state.peerNames && state.peerNames.delete(remotePeerId);
+    updatePeopleUi();
+    updateChatInputState();
+    appendLog(`Abuse: dropped ${remotePeerId} (${why})`);
+  }
+
+  function kickPeer(remotePeerId){
+    if (!room.isHost) return;
+    denyUntil.set(remotePeerId, nowMs() + DENY_MS);
+    dropPeer(remotePeerId, "kicked + denied 60m");
+  }
+
+  function toggleMute(remotePeerId){
+    if (muted.has(remotePeerId)) muted.delete(remotePeerId);
+    else muted.add(remotePeerId);
+    updatePeopleUi();
+  }
+
+  // ---------- knock mode (optional friction, session-only) ----------
+  // Shared setting (room-scoped, not saved). Host can toggle; everyone enforces locally.
+  const room = {
+    knockRequired: false,
+    passphrase: "",      // in-memory only
+    isHost: false,
+  };
+
+  // Per-peer auth status (in-memory)
+  // myNonce = challenge we issued to them; theirNonce = challenge they issued to us.
+  const auth = new Map(); // peerId -> { ok:boolean, myNonce?:string, theirNonce?:string }
+
+  function setKnockUi(){
+    if (!ui.knockBox) return;
+    ui.knockBox.style.display = (room.knockRequired ? "block" : "none");
+    if (ui.knockToggle) ui.knockToggle.checked = !!room.knockRequired;
+    if (ui.resetRoomBtn) ui.resetRoomBtn.disabled = !state.enabled;
+    if (ui.roomControlsHint){
+      ui.roomControlsHint.textContent = room.isHost
+        ? "These controls affect only this tab session."
+        : "Room controls are set by whoever created the link (this tab can still enter the passphrase).";
+    }
+    // Only host may toggle knock + reset room
+    if (ui.knockToggle) ui.knockToggle.disabled = !room.isHost || !state.enabled;
+    if (ui.resetRoomBtn) ui.resetRoomBtn.disabled = !room.isHost || !state.enabled;
+  }
+
+  function b64urlFromBytes(bytes){
+    let bin = "";
+    for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+  }
+
+  async function hmac(pass, nonce){
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(pass),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign","verify"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, enc.encode(nonce));
+    return b64urlFromBytes(new Uint8Array(sig));
+  }
+
+  function makeNonce(){
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return b64urlFromBytes(b);
+  }
+
+  function isAuthed(peerId){
+    if (!room.knockRequired) return true;
+    return !!(auth.get(peerId)?.ok);
+  }
+
+  async function sendToPeer(peerId, obj){
+    const p = state.peers.get(peerId);
+    if (!p || !p.dc || p.dc.readyState !== "open") return;
+    const raw = JSON.stringify(obj);
+    if (raw.length > MAX_PAYLOAD_CHARS) return;
+    try { p.dc.send(raw); } catch {}
+  }
+
+  async function broadcastObj(obj){
+    const raw = JSON.stringify(obj);
+    if (raw.length > MAX_PAYLOAD_CHARS) return;
+    for (const [pid, p] of state.peers.entries()){
+      if (p.dc && p.dc.readyState === "open"){
+        try { p.dc.send(raw); } catch {}
+      }
+    }
+  }
+
+  async function issueChallenge(peerId){
+    if (!room.knockRequired) return;
+    const myNonce = makeNonce();
+    const cur = auth.get(peerId) || { ok:false };
+    auth.set(peerId, { ok: !!cur.ok, myNonce, theirNonce: cur.theirNonce });
+    await sendToPeer(peerId, { t:"knock-challenge", nonce: myNonce, ts: nowMs() });
+    updatePeopleUi();
+  }
+
+  async function answerChallenge(peerId, nonce){
+    if (!room.knockRequired) return;
+    const cur = auth.get(peerId) || { ok:false };
+    auth.set(peerId, { ok: !!cur.ok, myNonce: cur.myNonce, theirNonce: nonce });
+    updatePeopleUi();
+    if (!room.passphrase) return;
+    const mac = await hmac(room.passphrase, nonce);
+    await sendToPeer(peerId, { t:"knock-response", mac, ts: nowMs() });
+  }
+
+  async function verifyResponse(peerId, mac){
+    if (!room.knockRequired) return true;
+    const st = auth.get(peerId) || {};
+    const myNonce = st.myNonce;
+    if (!myNonce) return false;
+    if (!room.passphrase) return false;
+    const expect = await hmac(room.passphrase, myNonce);
+    const ok = (expect === mac);
+    auth.set(peerId, { ok, myNonce, theirNonce: st.theirNonce });
+    updatePeopleUi();
+    return ok;
+  }
+
+  function updatePeopleUi(){
+    if (!ui.peopleList) return;
+    ui.peopleList.innerHTML = "";
+
+    const entries = [...state.peers.keys()].sort();
+    if (!entries.length){
+      const d = document.createElement("div");
+      d.className = "faint";
+      d.textContent = "No one else is connected yet.";
+      ui.peopleList.appendChild(d);
+      return;
+    }
+
+    for (const pid of entries){
+      const name = state.peerNames.get(pid) || pid;
+      const row = document.createElement("div");
+      row.className = "peopleRow";
+
+      const left = document.createElement("div");
+      left.className = "left";
+
+      const nm = document.createElement("div");
+      nm.className = "name";
+      nm.textContent = name;
+
+      const sub = document.createElement("div");
+      sub.className = "sub";
+
+      const bits = [];
+      if (room.knockRequired){
+        bits.push(isAuthed(pid) ? "passphrase: ok" : "passphrase: needed");
+      }
+      if (muted.has(pid)) bits.push("muted");
+      const until = denyUntil.get(pid) || 0;
+      if (until > nowMs()){
+        const mins = Math.ceil((until - nowMs())/60000);
+        bits.push(`denied: ${mins}m`);
+      }
+      sub.textContent = bits.join(" • ") || "connected";
+
+      left.appendChild(nm);
+      left.appendChild(sub);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const muteBtn = document.createElement("button");
+      muteBtn.className = "smallBtn";
+      muteBtn.type = "button";
+      muteBtn.textContent = muted.has(pid) ? "Unmute" : "Mute";
+      muteBtn.addEventListener("click", () => toggleMute(pid));
+
+      const kickBtn = document.createElement("button");
+      kickBtn.className = "smallBtn danger";
+      kickBtn.type = "button";
+      kickBtn.textContent = "Kick (60m)";
+      kickBtn.addEventListener("click", () => kickPeer(pid));
+
+      actions.appendChild(muteBtn);
+      if (room.isHost) actions.appendChild(kickBtn);
+
+      row.appendChild(left);
+      row.appendChild(actions);
+      ui.peopleList.appendChild(row);
+    }
+  }
+
+  const state = {
+    enabled: false,
+    roomUrl: null,
+    roomId: null,
+    peerId: null,
+    ws: null,
+
+    // peers: peerId -> { pc, dc, makingOffer, madeOffer }
+    peers: new Map(),
+
+    // track peers we've seen (prevents hello loops; enables late-join handshake)
+    seenPeers: new Set(),
+
+
+    // peer labels (session-only): peerId -> handle
+    peerNames: new Map(),
+    rtcConfig: {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ],
+    },
+  };
+// --- per-sender color helpers (session-only) ---
+function hashHue(str) {
+  let h = 0;
+  const s = String(str || "");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function peerColor(key) {
+  const hue = hashHue(key || "peer");
+  return `hsl(${hue} 65% 60%)`;
+}
+
+// --- reply state (session-only) ---
+let replyTo = null; // { peerId, name, text }
+
+function setReplyTo(obj) {
+  replyTo = obj;
+  if (!obj) {
+    ui.replyBar.style.display = "none";
+    ui.replyText.textContent = "";
+    return;
+  }
+  ui.replyBar.style.display = "flex";
+  const snippet = String(obj.text || "").trim().slice(0, 80);
+  ui.replyText.textContent = `Replying to ${obj.name}: “${snippet}${snippet.length >= 80 ? "…" : ""}”`;
+}
+
+function makeMsgId() {
+  try { return crypto.randomUUID(); } catch {}
+  return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+}
+
+  function addBubble(who, text, peerId, reply) {
+  const wrap = document.createElement("div");
+  wrap.className = `bubble ${who}`;
+
+  const meta = document.createElement("div");
+  meta.className = "metaLine";
+
+  if (who === "you") {
+    const me = getDisplayName();
+    meta.textContent = me ? `You (${me})` : "You";
+  } else {
+    const label =
+      (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId)
+      : (peerId || "Peer");
+
+    meta.textContent = label;
+
+    // Stable accent per sender (prefer handle if known, else peerId)
+    const colorKey = (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId) : peerId;
+    wrap.style.setProperty("--who", peerColor(colorKey || label));
+  }
+
+  const body = document.createElement("div");
+  body.textContent = text;
+
+  wrap.appendChild(meta);
+
+  // Optional reply context line (tiny quote, no threads)
+  if (reply && reply.name && reply.text) {
+    const q = document.createElement("div");
+    q.className = "faint";
+    q.style.margin = "6px 0 8px";
+    const snippet = String(reply.text).trim().slice(0, 80);
+    q.textContent = `↪ replying to ${reply.name}: “${snippet}${snippet.length >= 80 ? "…" : ""}”`;
+    wrap.appendChild(q);
+  }
+
+  wrap.appendChild(body);
+
+  // Click-to-reply (lightweight context)
+  wrap.addEventListener("click", () => {
+    if (who === "you") return;
+    const name =
+      (peerId && state.peerNames && state.peerNames.get(peerId)) ? state.peerNames.get(peerId)
+      : (peerId || "Peer");
+    setReplyTo({ peerId, name, text: text });
+    ui.msgInput?.focus();
+  });
+
+  ui.chatFeed.appendChild(wrap);
+  ui.chatFeed.scrollTop = ui.chatFeed.scrollHeight;
+}
+
+  function appendLog(line) {
+    try{ console.log("[HereNow]", line); }catch{}
+    const t = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
+    ui.log.value += `\n[${t}] ${line}`;
+    ui.log.scrollTop = ui.log.scrollHeight;
+  }
+
+
+// ---- optional extension bridge ----
+// If the HereNow extension is installed, it may send a one-time message after user consents in its overlay.
+// Web-only users can still click the page Enable button normally.
+window.addEventListener("message", (ev) => {
+  const d = ev && ev.data;
+  if (!d || d.source !== "herenow-extension") return;
+  if (d.type === "enable-session") {
+    appendLog("Extension consent received for this tab.");
+    if (ui.enableBtn && !state.enabled) ui.enableBtn.click();
+  }
+});
+
+  // Keep top-of-log status block honest (first 4 lines)
+  function setTopStatus(lines) {
+    const parts = ui.log.value.split("\n");
+    const rest = parts.slice(4);
+    ui.log.value = lines.join("\n") + "\n" + rest.join("\n");
+  }
+
+  function setRoomUi(roomId) {
+    state.roomId = roomId;
+    state.roomUrl = currentShareUrl(roomId);
+    ui.roomInput.value = state.roomUrl;
+    if (ui.roomInput2) ui.roomInput2.value = state.roomUrl;
+    ui.copyBtn.disabled = !(state.enabled && state.roomUrl);
+    if (ui.copyBtn2) ui.copyBtn2.disabled = !(state.enabled && state.roomUrl);
+  }
+
+  function resetRoomUi() {
+    state.roomId = null;
+    state.roomUrl = null;
+    ui.roomInput.value = "(not yet created)";
+    ui.copyBtn.disabled = true;
+  }
+function getDisplayName() {
+  const el = document.getElementById("displayNameInput");
+  let raw = (el?.value || "").trim();
+
+  raw = raw.replace(/\s+/g, "");
+  raw = raw.replace(/[^@a-zA-Z0-9_.]/g, "");
+  raw = raw.slice(0, 24);
+
+  return raw || null;
+}
+
+function setStatus({ enabled }) {
+  state.enabled = enabled;
+
+  ui.statusDot.classList.toggle("good", enabled);
+  ui.statusDot.classList.toggle("bad", false);
+
+  ui.statusText.textContent = enabled ? "On" : "Off";
+  ui.enableBtn.disabled = enabled;
+  ui.disableBtn.disabled = !enabled;
+
+  ui.copyBtn.disabled = !(enabled && state.roomUrl);
+  if (ui.copyBtn2) ui.copyBtn2.disabled = !(enabled && state.roomUrl);
+
+  if (!enabled) ui.netText.textContent = "OFF";
+  else ui.netText.textContent = state.ws ? "CONNECTING…" : "READY";
+}
+
+function updateChatInputState() {
+  const anyOpen = [...state.peers.values()]
+    .some(p => p.dc && p.dc.readyState === "open");
+
+  ui.msgInput.disabled = !anyOpen;
+  ui.sendBtn.disabled = !anyOpen;
+
+  if (!state.enabled) {
+    ui.msgInput.placeholder = "Turn chat on to send messages";
+  } else if (!anyOpen) {
+    ui.msgInput.placeholder = "Waiting for someone to join…";
+  } else {
+    ui.msgInput.placeholder = "Type a message";
+  }
+}
+
+  // ---------- signaling ----------
+  function wsUrlForRoom(roomId) {
+    const base = "wss://herenow-signal.the-geek.workers.dev/signal/";
+    return base + encodeURIComponent(roomId);
+  }
+
+  function sendSignal(msg) {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    try {
+      state.ws.send(JSON.stringify(msg));
+    } catch {
+      appendLog("Relay: send failed");
+    }
+  }
+
+  function mkMsg(t, to, payload) {
+    return {
+      t,
+      room: state.roomId,
+      from: state.peerId,
+      to,
+      payload: payload ?? null,
+      ts: Date.now(),
+    };
+  }
+
+ function disconnectAll(reason = "disconnect") {
+  // Close DC/PCs
+  for (const [, p] of state.peers.entries()) {
+    try { p.dc && p.dc.close(); } catch {}
+    try { p.pc && p.pc.close(); } catch {}
+  }
+  state.peers.clear();
+
+  // Close WS
+  if (state.ws) {
+    try { appendLog(`Relay: closing (${reason})`); state.ws.close(1000, reason); } catch {}
+    state.ws = null;
+  }
+
+  if (state.enabled) ui.netText.textContent = "READY";
+}
+
+function leaveSession(reason = "leave") {
+  disconnectAll(reason);
+
+  setStatus({ enabled: false });
+// If link says knock=1, require passphrase before enabling
+room.knockRequired = readKnockFlagFromUrl();
+setKnockUi();
+const gate = document.getElementById("preKnockGate");
+if (gate) gate.style.display = room.knockRequired ? "block" : "none";
+const ks1 = document.getElementById("knockStep1");
+if (ks1) ks1.style.display = room.knockRequired ? "block" : "none";
+
+  // Reset Enable button UI
+  ui.enableBtn.disabled = false;
+  ui.enableBtn.textContent = "Turn chat on";
+
+  document.body.classList.remove("sessionActive");
+  state.peerId = null;
+  state.seenPeers.clear();
+  state.peerNames.clear();
+  setReplyTo(null);
+
+  // session-only controls reset
+  denyUntil.clear();
+  muted.clear();
+  rate.clear();
+  auth.clear();
+  room.knockRequired = false;
+  room.passphrase = "";
+  room.isHost = false;
+  setKnockUi();
+  updatePeopleUi();
+
+  const mc = document.getElementById("messagesCard");
+  if (mc) mc.style.display = "none";
+  document.body.classList.remove("zenMode");
+  if (document.fullscreenElement) { try { document.exitFullscreen(); } catch {} }
+  setFsLabel();
+
+  ui.log.value = "(idle)\n- no connections\n- no intro relay\n- no direct connection\n";
+  if (ui.chatFeed) ui.chatFeed.innerHTML = "";
+}
+
+  function connectSignaling(roomId) {
+    if (!state.enabled) return;
+
+    const url = wsUrlForRoom(roomId);
+    appendLog(`Relay: connecting to ${url}`);
+
+    const ws = new WebSocket(url);
+    state.ws = ws;
+    ui.netText.textContent = "CONNECTING…";
+
+    ws.addEventListener("open", () => {
+      appendLog(`Relay: connected as ${state.peerId}`);
+      ui.netText.textContent = "CONNECTED";
+
+      // truthful header block
+      setTopStatus([
+        "(enabled)",
+        "- connections: 0",
+        "- intro relay: connected",
+        "- direct: negotiating"
+      ]);
+
+      // Announce presence (room-local)
+      sendSignal(mkMsg("hello", "*", { v: 1 }));
+      setKnockUi();
+      updatePeopleUi();
+    });
+
+    ws.addEventListener("message", async (ev) => {
+      let msg;
+      try {
+        msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+      } catch {
+        appendLog("Relay: recv non-JSON (ignored)");
+        return;
+      }
+
+    
+      // Ignore other rooms / self
+      if (!msg || msg.room !== state.roomId) return;
+      if (msg.from === state.peerId) return;
+
+      // Honor targeting (broadcast or direct)
+      if (msg.to && msg.to !== "*" && msg.to !== state.peerId) return;
+
+      try {
+        await handleSignal(msg);
+      } catch {
+        appendLog(`Relay: handler error (${msg.t})`);
+      }
+    });
+
+    ws.addEventListener("close", (ev) => {
+      appendLog(`Relay: closed (code ${ev.code})`);
+      state.ws = null;
+      if (state.enabled) ui.netText.textContent = "READY";
+    });
+
+    ws.addEventListener("error", () => {
+      appendLog("Relay: error");
+    });
+  }
+
+  window.addEventListener("pagehide", () => leaveSession("pagehide"));
+
+
+  // ---------- WebRTC peer management ----------
+  function shouldBeOfferer(remotePeerId) {
+    // Deterministic role to avoid glare: lower peerId initiates
+    return state.peerId < remotePeerId;
+  }
+
+  function ensurePeer(remotePeerId) {
+    let peer = state.peers.get(remotePeerId);
+    if (peer) return peer;
+
+    const pc = new RTCPeerConnection(state.rtcConfig);
+
+    peer = {
+      pc,
+      dc: null,
+      makingOffer: false,
+      madeOffer: false
+    };
+    state.peers.set(remotePeerId, peer);
+    updatePeopleUi();
+
+    pc.addEventListener("icecandidate", (ev) => {
+      if (!ev.candidate) return;
+      sendSignal(mkMsg("ice", remotePeerId, { candidate: ev.candidate }));
+    });
+
+    pc.addEventListener("connectionstatechange", () => {
+      appendLog(`RTC: ${remotePeerId} pc=${pc.connectionState}`);
+
+      if (pc.connectionState === "connected") {
+        const connectedCount = [...state.peers.values()]
+          .filter(p => p.pc && p.pc.connectionState === "connected").length;
+
+        setTopStatus([
+          "(enabled)",
+          `- connections: ${connectedCount}`,
+          "- intro relay: connected",
+          "- direct: connected"
+        ]);
+      }
+
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+        setTopStatus([
+          "(enabled)",
+          "- connections: 0",
+          "- intro relay: connected",
+          "- WebRTC: not connected"
+        ]);
+      }
+    });
+
+    pc.addEventListener("datachannel", (ev) => {
+      peer.dc = ev.channel;
+      wireDataChannel(remotePeerId, peer.dc);
+    });
+
+    return peer;
+  }
+
+function wireDataChannel(remotePeerId, dc) {
+  dc.addEventListener("open", () => {
+    appendLog(`RTC: data channel open with ${remotePeerId}`);
+
+    // Capacity + deny checks (session-only)
+    if (isDenied(remotePeerId)) {
+      appendLog(`Abuse: denied ${remotePeerId} (still in 60m window)`);
+      kickPeer(remotePeerId);
+      return;
+    }
+    if (state.peers.size > MAX_PEERS) {
+      appendLog(`Abuse: too many peers (max ${MAX_PEERS}) -> dropping ${remotePeerId}`);
+      dropPeer(remotePeerId, "peer cap");
+      return;
+    }
+
+    // One-time label share (session-only)
+    try {
+      dc.send(JSON.stringify({ t: "hello", displayName: getDisplayName(), knockRequired: room.knockRequired, ts: Date.now() }));
+    } catch {}
+
+    // If knock mode is on, the host challenges each peer as they connect.
+    if (room.knockRequired && room.isHost) {
+      issueChallenge(remotePeerId);
+    }
+
+    updatePeopleUi();
+    updateChatInputState();
+  });
+
+  dc.addEventListener("close", () => {
+    appendLog(`RTC: data channel closed with ${remotePeerId}`);
+    clearTyping(remotePeerId);
+    updatePeopleUi();
+    updateChatInputState();
+  });
+
+  dc.addEventListener("message", (ev) => {
+    const raw = typeof ev.data === "string" ? ev.data : "";
+    if (raw.length > MAX_PAYLOAD_CHARS) {
+      dropPeer(remotePeerId, "oversize payload");
+      return;
+    }
+    // Session-only deny + rate limits
+    if (isDenied(remotePeerId)) {
+      dropPeer(remotePeerId, "denied");
+      return;
+    }
+    const n = bumpRate(remotePeerId);
+    if (n > MAX_CHAT_PER_10S) {
+      // Don't log spam details; just drop.
+      dropPeer(remotePeerId, "rate limit");
+      denyUntil.set(remotePeerId, nowMs() + DENY_MS);
+      return;
+    }
+    let obj = null;
+
+    // Try JSON first (new protocol). Fall back to plain text (older peers).
+    try { obj = JSON.parse(raw); } catch {}
+
+    if (obj && obj.t === "hello") {
+      const name = (obj.displayName || "").toString().trim();
+      if (name) state.peerNames.set(remotePeerId, name);
+      // If peer indicates knock is required, adopt it locally (host will also broadcast via room msg)
+      if (!room.isHost && obj.knockRequired === true) {
+        room.knockRequired = true;
+        setKnockUi();
+        // Ask the host for a fresh challenge (best-effort)
+        try { dc.send(JSON.stringify({ t:"knock-request", ts: Date.now() })); } catch {}
+      }
+      appendLog(`${remotePeerId}: [hello${name ? " " + name : ""}]`);
+      updatePeopleUi();
+      return;
+    }
+
+    if (obj && obj.t === "typing") {
+      const name = (obj.displayName || "").toString().trim();
+      if (name) state.peerNames.set(remotePeerId, name);
+      const label = (name || (state.peerNames.get(remotePeerId)) || remotePeerId || "Someone");
+      noteTyping(remotePeerId, label);
+      return;
+    }
+
+    if (obj && obj.t === "room") {
+      // Room setting broadcast (best-effort). No persistence.
+      if (!room.isHost && typeof obj.knockRequired === "boolean") {
+        room.knockRequired = obj.knockRequired;
+        if (!room.knockRequired) auth.clear();
+        setKnockUi();
+        updatePeopleUi();
+        if (room.knockRequired) {
+          // Ask the host for a challenge (best-effort)
+          try { await sendToPeer(remotePeerId, { t:"knock-request", ts: nowMs() }); } catch {}
+        }
+      }
+      return;
+    }
+
+    if (obj && obj.t === "knock-challenge") {
+      const nonce = (obj.nonce || "").toString();
+      // Store their challenge (don't clobber our own myNonce)
+      const cur = auth.get(remotePeerId) || { ok:false };
+      auth.set(remotePeerId, { ok: !!cur.ok, myNonce: cur.myNonce, theirNonce: nonce });
+      updatePeopleUi();
+      // Respond if we already have the passphrase (or later when user enters it)
+      answerChallenge(remotePeerId, nonce);
+      return;
+    }
+
+    if (obj && obj.t === "knock-response") {
+      const mac = (obj.mac || "").toString();
+      verifyResponse(remotePeerId, mac);
+      return;
+    }
+
+    if (obj && obj.t === "knock-request") {
+      if (room.isHost && room.knockRequired) {
+        issueChallenge(remotePeerId);
+      }
+      return;
+    }
+
+if (obj && obj.t === "chat") {
+      if (room.knockRequired && !isAuthed(remotePeerId)) {
+        // Don't render or log content from unauth'd peers
+        return;
+      }
+      if (muted.has(remotePeerId)) {
+        // Local mute: ignore without escalating.
+        return;
+      }
+      const text = safeText((obj.text ?? "").toString());
+      const name = (obj.displayName || "").toString().trim();
+      if (name) state.peerNames.set(remotePeerId, name);
+      appendLog(`${remotePeerId}: ${text}`);
+      addBubble("peer", text, remotePeerId, obj.replyTo || null);
+      return;
+    }
+
+    // Plain text fallback
+    const text = raw || "[binary]";
+    appendLog(`${remotePeerId}: ${text}`);
+    addBubble("peer", text, remotePeerId, null);
+  });
+}
+
+  async function createOfferTo(remotePeerId) {
+    const peer = ensurePeer(remotePeerId);
+    if (peer.makingOffer || peer.madeOffer) return;
+    peer.makingOffer = true;
+
+    try {
+      if (!peer.dc) {
+        peer.dc = peer.pc.createDataChannel("chat");
+        wireDataChannel(remotePeerId, peer.dc);
+      }
+
+      const offer = await peer.pc.createOffer();
+      await peer.pc.setLocalDescription(offer);
+
+      sendSignal(mkMsg("offer", remotePeerId, { sdp: peer.pc.localDescription }));
+      appendLog(`RTC: sent offer to ${remotePeerId}`);
+      peer.madeOffer = true;
+    } finally {
+      peer.makingOffer = false;
+    }
+  }
+
+  async function handleSignal(msg) {
+    const remotePeerId = msg.from;
+    if (isDenied(remotePeerId)) return;
+    if (state.peers.size >= MAX_PEERS && !state.peers.has(remotePeerId)) return;
+
+    if (msg.t === "hello") {
+      const firstTime = !state.seenPeers.has(remotePeerId);
+      if (firstTime) state.seenPeers.add(remotePeerId);
+
+      if (firstTime) appendLog(`Relay: hello from ${remotePeerId}`);
+
+
+      if (firstTime) {
+        // Direct ack
+        sendSignal(mkMsg("hello", remotePeerId, { v: 1, ack: true }));
+        // Bounce to room once so late joiners definitely hear us
+        sendSignal(mkMsg("hello", "*", { v: 1, bounce: true }));
+      }
+
+      if (shouldBeOfferer(remotePeerId)) {
+        await createOfferTo(remotePeerId);
+      }
+      return;
+    }
+
+    if (msg.t === "offer") {
+      const peer = ensurePeer(remotePeerId);
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(msg.payload.sdp));
+      const answer = await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+
+      sendSignal(mkMsg("answer", remotePeerId, { sdp: peer.pc.localDescription }));
+      appendLog(`RTC: recv offer + sent answer to ${remotePeerId}`);
+      return;
+    }
+
+    if (msg.t === "answer") {
+      const peer = ensurePeer(remotePeerId);
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(msg.payload.sdp));
+      appendLog(`RTC: recv answer from ${remotePeerId}`);
+      return;
+    }
+
+    if (msg.t === "ice") {
+      const peer = ensurePeer(remotePeerId);
+      if (msg.payload && msg.payload.candidate) {
+        try {
+          await peer.pc.addIceCandidate(new RTCIceCandidate(msg.payload.candidate));
+        } catch {}
+      }
+      return;
+    }
+  }
+
+  function broadcastChat(text) {
+  const payload = JSON.stringify({
+    t: "chat",
+    id: makeMsgId(),
+    text,
+    displayName: getDisplayName(),
+    replyTo: replyTo ? { name: replyTo.name, text: String(replyTo.text || "").trim().slice(0, 80) } : null,
+    ts: Date.now()
+  });
+
+  if (payload.length > MAX_PAYLOAD_CHARS) return;
+
+  for (const [pid, p] of state.peers.entries()) {
+    if (room.knockRequired && !isAuthed(pid)) continue;
+    if (p.dc && p.dc.readyState === "open") {
+      try { p.dc.send(payload); } catch {}
+    }
+  }
+}
+
+  // ---------- handlers ----------
+  
+  ui.replyClear?.addEventListener("click", () => setReplyTo(null));
+ui.enableBtn?.addEventListener("click", async () => {
+    // If this link requires a passphrase, require it BEFORE any network activity.
+    if (room.knockRequired && !room.passphrase) {
+      const gate = document.getElementById("preKnockGate");
+      if (gate) gate.style.display = "block";
+      ui.knockPass?.focus();
+      appendLog("Knock required: enter passphrase first.");
+      return;
+    }
+
+    setStatus({ enabled: true });
+    document.body.classList.add("sessionActive");
+    const mc = document.getElementById("messagesCard");
+    if (mc) mc.style.display = "flex";
+    ui.enableBtn.textContent = "On";
+updateChatInputState();
+    setFsLabel();
+
+    // Reuse roomId if present (A is correct)
+    let roomId = readRoomIdFromUrl();
+    const joinedViaLink = !!roomId;
+    if (!roomId) {
+      roomId = generateRoomId();
+      setRoomIdInUrl(roomId);
+    }
+
+    // Host = the tab that created the link (not the one that joined an existing link)
+    room.isHost = !joinedViaLink;
+    setRoomUi(roomId);
+    setKnockUi();
+    updatePeopleUi();
+
+    // Fresh peer identity per enabled session
+    state.peerNames.clear();
+
+    state.peerId = generatePeerId();
+
+    ui.log.value = "(enabled)\n- connections: 0\n- intro relay: connecting\n- direct: off";
+    if (ui.chatFeed) ui.chatFeed.innerHTML = "";
+
+
+    appendLog("Consent granted for this tab. Room prepared locally.");
+
+    connectSignaling(roomId);
+  });
+
+ui.disableBtn?.addEventListener("click", () => {
+  leaveSession("disabled");
+});
+
+
+async function doCopyLink(){
+  if (!state.enabled) return;
+  const val = ui.roomInput?.value || "";
+  if (!val) return;
+  try{
+    await navigator.clipboard.writeText(val);
+    if (ui.copyToast){ ui.copyToast.style.display = "inline"; setTimeout(()=>ui.copyToast.style.display="none", 1100); }
+    if (ui.copyToast2){ ui.copyToast2.style.display = "inline"; setTimeout(()=>ui.copyToast2.style.display="none", 1100); }
+    appendLog("Copied room link");
+  }catch{}
+}
+
+ui.copyBtn?.addEventListener("click", async () => {
+  await doCopyLink();
+  return;
+
+  if (!state.enabled || !state.roomUrl) return;
+  try {
+    await copyText(state.roomUrl);
+    appendLog("Copied room link to clipboard.");
+
+    ui.copyToast.textContent = "Copied ✅";
+    ui.copyToast.classList.remove("bad");
+    ui.copyToast.classList.add("good");
+    ui.copyToast.style.display = "inline-block";
+
+    setTimeout(() => { ui.copyToast.style.display = "none"; }, 1200);
+  } catch {
+    appendLog("Copy failed (clipboard permissions?). You can manually copy the URL.");
+
+    ui.copyToast.textContent = "Copy failed";
+    ui.copyToast.classList.remove("good");
+    ui.copyToast.classList.add("bad");
+    ui.copyToast.style.display = "inline-block";
+
+    setTimeout(() => { ui.copyToast.style.display = "none"; }, 1800);
+  }
+
+});
+
+ui.copyBtn2?.addEventListener("click", async () => { await doCopyLink(); });
+
+
+// Room reset (host-only): new link, boot everyone, nothing saved.
+ui.resetRoomBtn?.addEventListener("click", () => {
+  if (!state.enabled || !room.isHost) return;
+
+  const newRoom = generateRoomId();
+  setRoomIdInUrl(newRoom);
+  setRoomUi(newRoom);
+
+  disconnectAll("room-reset");
+
+  state.seenPeers.clear();
+  state.peerNames.clear();
+  rate.clear();
+  muted.clear();
+  denyUntil.clear();
+  auth.clear();
+  typingState.clear();
+  if (ui.typingLine) { ui.typingLine.style.display = "none"; ui.typingLine.textContent = ""; }
+
+  state.peerId = generatePeerId();
+
+  if (ui.chatFeed) ui.chatFeed.innerHTML = "";
+  setReplyTo(null);
+
+  appendLog("Room reset: generated a new link and restarted this session.");
+
+  ui.log.value = "(enabled)\n- connections: 0\n- intro relay: connecting\n- direct: off";
+  connectSignaling(readRoomIdFromUrl());
+
+  // After reset: host keeps current room settings for this session.
+  setKnockUi();
+  updatePeopleUi();
+  updateChatInputState();
+});
+
+
+
+ui.knockToggle?.addEventListener("change", async () => {
+  if (!room.isHost || !state.enabled) {
+    // snap back
+    setKnockUi();
+    return;
+  }
+  room.knockRequired = !!ui.knockToggle.checked;
+  // Share link carries knock flag (passphrase is NOT included)
+  setKnockFlagInUrl(room.knockRequired);
+  if (!room.knockRequired) {
+    auth.clear();
+  } else {
+    // entering knock mode: challenge all current peers
+    for (const pid of state.peers.keys()) {
+      await issueChallenge(pid);
+    }
+  }
+  setKnockUi();
+  updatePeopleUi();
+  // Notify peers of room setting (best-effort)
+  await broadcastObj({ t:"room", knockRequired: room.knockRequired, ts: nowMs() });
+});
+
+document.getElementById("knockPassStep1")?.addEventListener("input", () => {
+  room.passphrase = (document.getElementById("knockPassStep1").value || "").toString();
+});
+
+ui.knockPass?.addEventListener("input", async () => {
+  room.passphrase = (ui.knockPass.value || "").toString();
+  if (!room.knockRequired) return;
+  if (!room.passphrase) return;
+  // Auto-knock: answer any pending challenges we've received.
+  for (const pid of state.peers.keys()) {
+    const st = auth.get(pid);
+    if (st?.theirNonce && !st.ok) {
+      await answerChallenge(pid, st.theirNonce);
+    }
+  }
+});
+
+function setFsLabel() {
+  const isFs = !!document.fullscreenElement;
+  const isZen = document.body.classList.contains("zenMode");
+  if (ui.fsBtn) ui.fsBtn.textContent = (isFs || isZen) ? "Exit Full Screen" : "Expand Chat Window";
+}
+
+async function toggleExpand() {
+  // If already in real fullscreen, exit it.
+  if (document.fullscreenElement) {
+    await document.exitFullscreen().catch(() => {});
+    setFsLabel();
+    return;
+  }
+
+  // If in zen mode, exit it.
+  if (document.body.classList.contains("zenMode")) {
+    document.body.classList.remove("zenMode");
+    setFsLabel();
+    return;
+  }
+
+  // Try real fullscreen on the Messages card.
+  const target = document.getElementById("messagesCard") || document.documentElement;
+  try {
+    await target.requestFullscreen();
+  } catch {
+    // Fullscreen blocked/unavailable -> fall back to zen mode.
+    document.body.classList.add("zenMode");
+  }
+  setFsLabel();
+}
+
+ui.fsBtn?.addEventListener("click", toggleExpand);
+
+// Keep label accurate if user hits ESC to exit fullscreen
+document.addEventListener("fullscreenchange", setFsLabel);
+setFsLabel();
+
+  ui.sendBtn?.addEventListener("click", () => {
+    let msg = ui.msgInput.value.trim();
+    if (!msg) return;
+    if (msg.length > MAX_TEXT_CHARS) msg = msg.slice(0, MAX_TEXT_CHARS) + "…";
+
+    ui.msgInput.value = "";
+    appendLog(`you: ${msg}`);
+    addBubble("you", msg, state.peerId, replyTo ? { name: replyTo.name, text: String(replyTo.text || "").trim().slice(0, 80) } : null);
+    broadcastChat(msg);
+    setReplyTo(null);
+  });
+
+  ui.msgInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ui.sendBtn.click();
+  });
+
+  ui.msgInput?.addEventListener("input", () => {
+    // Ephemeral typing hint: per-connection, auto-expires, no logging.
+    if (!state.enabled) return;
+    const anyOpen = [...state.peers.values()].some(p => p.dc && p.dc.readyState === "open");
+    if (!anyOpen) return;
+    if (!ui.msgInput.value) return;
+    sendTyping();
+  });
+
+  // init inert
+  setStatus({ enabled: false });
+// If link says knock=1, require passphrase before enabling
+room.knockRequired = readKnockFlagFromUrl();
+setKnockUi();
+const gate = document.getElementById("preKnockGate");
+if (gate) gate.style.display = room.knockRequired ? "block" : "none";
+const ks1 = document.getElementById("knockStep1");
+if (ks1) ks1.style.display = room.knockRequired ? "block" : "none";
+setKnockUi();
+updatePeopleUi();
+updateChatInputState();
+
+  // Debug marker: proves script reached end of init.
+  window.__HN_READY = true;
+  appendLog("UI ready.");
+
+  resetRoomUi();
+  } catch (e) {
+    try {
+      console.error(e);
+      const box = document.getElementById("fatalBox");
+      const msg = document.getElementById("fatalMsg");
+      if (box && msg) {
+        msg.textContent = (e && (e.stack || e.message)) ? String(e.stack || e.message) : String(e);
+        box.style.display = "block";
+      }
+      const st = document.getElementById("statusText");
+      if (st) st.textContent = "Error";
+      const dot = document.getElementById("statusDot");
+      if (dot) { dot.classList.add("bad"); dot.classList.remove("good"); }
+    } catch {}
+  }
+})();
+</script>
+
+
+
+</body>
+</html>

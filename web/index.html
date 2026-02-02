@@ -4,10 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>HereNow — Consent-first ephemeral chat</title>
-  <meta name="description" content="HereNow is consent-first, ephemeral chat. Idle by default. No background activity. Close tab = chat off." />
+  <title>HereNow — Private chat, by link, by choice</title>
+  <meta name="description" content="HereNow is a consent-first, short-lived chat. Set simple room rules, then turn chat on to create a share link. Close the tab and you’re out." />
 
   <style>
+
+    /* --- Optional theme swap (DiggTinder about-page look) ---
+       If you paste DiggTinder's about-page CSS variables + core styles here,
+       HereNow will inherit that vibe. Send me the DiggTinder about page CSS (or HTML)
+       and I’ll match it precisely. */
+
     :root{
       --bg:#0b1020;
       --panel:#0f1730;
@@ -156,69 +162,103 @@
       <div class="brand">
         <h1>HereNow</h1>
         <p>
-          Consent-first, ephemeral chat. Idle by default. No background activity.
-          <strong>Close tab = chat off.</strong>
+          A private chat that only exists while you’re here.
+          Nothing runs in the background.
+          <strong>Close the chat tab and you’re out.</strong>
         </p>
       </div>
 
       <div class="cta" aria-label="Primary actions">
-        <a class="btn" href="/herenow/chat" rel="nofollow">Open chat page</a>
-        <a class="btn primary" href="/herenow/chat" rel="nofollow">Start a session (explicit opt-in)</a>
+        <a class="btn primary" href="/herenow/chat" rel="nofollow">Open chat</a>
       </div>
     </header>
 
     <main class="grid">
       <section>
-        <h2>The contract</h2>
+        <h2>The simple rules</h2>
         <p class="muted">
-          HereNow is intentionally small. It is not ambient. It is not persistent. It does nothing unless you ask.
+          HereNow is intentionally small. It’s not a platform. It’s a moment.
+          If you don’t open the chat page and say yes, nothing happens.
+        </p>
+
+        <hr />
+
+        <h2>How to start</h2>
+        <p class="muted">
+          The chat page is a two-step flow: set your room rules first, then turn chat on.
+        </p>
+        <ul>
+          <li><strong>Step 1 — Room setup:</strong> choose a display name, and optionally enable Knock mode (passphrase).</li>
+          <li><strong>Step 2 — Turn chat on:</strong> a share link is created. Copy it and send it to the people you want.</li>
+        </ul>
+        <p class="faint">
+          If Knock mode is enabled, the link includes a tiny “knock” flag. Joiners must enter the passphrase first, then they can turn chat on.
+          The passphrase is never included in the link.
         </p>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> Idle by default</div>
-          <div class="muted">This page never activates chat. No prompts. No networking.</div>
+          <div class="badge"><span class="dot"></span> This page is quiet</div>
+          <div class="muted">No prompts. No networking. Reading this page changes nothing.</div>
         </div>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> Explicit opt-in per session</div>
-          <div class="muted">Opening the chat page still does nothing until you consent for that tab.</div>
+          <div class="badge"><span class="dot"></span> You choose to join</div>
+          <div class="muted">The chat page asks before anything connects — every time, for that tab.</div>
         </div>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> Close tab = chat off</div>
-          <div class="muted">Participation ends immediately when the chat tab closes. No memory retained.</div>
+          <div class="badge"><span class="dot"></span> Leaving is instant</div>
+          <div class="muted">Close the chat tab and the session ends. No history is kept.</div>
         </div>
 
         <div class="rule">
-          <div class="badge"><span class="dot warn"></span> No discovery</div>
-          <div class="muted">No global rooms, no public directory, no “who’s online”, no algorithmic surfaces.</div>
+          <div class="badge"><span class="dot warn"></span> Link-only</div>
+          <div class="muted">Only people you share a link with can join. No public rooms, no directory, no “who’s online”.</div>
         </div>
 
         <hr />
 
         <h2>What it is (and isn’t)</h2>
         <ul>
-          <li><strong>It is</strong> a short-lived chat session between people who have a link.</li>
-          <li><strong>It is</strong> consent-first: nothing happens without an explicit “yes”.</li>
+          <li><strong>It is</strong> a short-lived chat session between people who have the link.</li>
+          <li><strong>It is</strong> consent-first: it stays off until you explicitly turn it on.</li>
           <li><strong>It is not</strong> a social network, community platform, or identity system.</li>
           <li><strong>It is not</strong> a background service. If you’re not on the chat page, it’s asleep.</li>
         </ul>
 
         <hr />
 
-        <h2>How it works (high level)</h2>
+        <h2>How it works (plain English)</h2>
         <p class="muted">
-          A chat session is a temporary “room” created by your browser. People join only by opening the chat link and consenting.
+          Your browser creates a temporary chat link. People join only by opening that link and choosing to participate.
         </p>
         <ul>
-          <li>Messages flow peer-to-peer using WebRTC.</li>
-          <li>A Cloudflare Worker + Durable Object is used <em>only</em> for signaling (introductions).</li>
+          <li>Once connected, messages go directly between browsers.</li>
+          <li>A tiny relay is used only for introductions (so peers can find each other).</li>
           <li>No accounts. No saved history. No replay. No recovery.</li>
         </ul>
 
+        <hr />
+
+        <h2>Abuse brakes (built-in)</h2>
+        <p class="muted">
+          HereNow isn’t a platform, so the safety approach is simple: friction before participation, and quick exits.
+        </p>
+        <ul>
+          <li><strong>Kick + 60-minute deny</strong> (this tab only) from the People drawer.</li>
+          <li><strong>New link (room reset)</strong> to boot everyone and invalidate the old link.</li>
+          <li><strong>Silent limits</strong> (message size + rate limits) to keep spam from melting the room.</li>
+        </ul>
+
+        <h2>Optional: Knock mode</h2>
+        <p class="muted">
+          If you want extra friction, you can require a passphrase. The link lets people connect, but they can’t chat until they enter it.
+          The passphrase is never included in the link and nothing is saved.
+        </p>
+
         <pre aria-label="Lifecycle">
-IDLE (landing page) → IDLE
-IDLE (open chat page) → CONSENT → ACTIVE
+IDLE (this page) → IDLE
+open chat page → CONSENT → ACTIVE
 close chat tab → CLOSED → IDLE
         </pre>
       </section>
@@ -226,22 +266,22 @@ close chat tab → CLOSED → IDLE
       <section>
         <h2>Privacy posture</h2>
         <ul>
-          <li>No analytics on this landing page.</li>
-          <li>No scripts on this landing page.</li>
+          <li>No analytics on this page.</li>
+          <li>No scripts on this page.</li>
           <li>No background polling. No “phone home”.</li>
-          <li>Chat is ephemeral by design; closing the tab ends the session.</li>
+          <li>Chat exists only while the chat tab is open.</li>
         </ul>
 
         <hr />
 
         <h2>Use it safely</h2>
         <p class="muted">
-          This is a lightweight tool, not a moderation platform. Keep it boring:
+          This is a lightweight tool, not a moderation platform:
         </p>
         <ul>
-          <li>Share room links only with people you intend to talk to.</li>
+          <li>Share chat links only with people you intend to talk to.</li>
           <li>Assume participants can screenshot.</li>
-          <li>If you don’t trust the room, don’t join it.</li>
+          <li>If you don’t trust the link, don’t join.</li>
         </ul>
 
         <hr />
@@ -252,21 +292,25 @@ close chat tab → CLOSED → IDLE
         </p>
 
         <p><strong>Does opening the chat page auto-join?</strong><br>
-          <span class="muted">No. The chat page will ask for explicit consent per session.</span>
+          <span class="muted">No. You’ll set your room rules first, then you choose whether to turn chat on.</span>
         </p>
 
-        <p><strong>Is there a “home room” or public lobby?</strong><br>
-          <span class="muted">No. No global rooms, no discovery.</span>
+        <p><strong>Is there a public lobby?</strong><br>
+          <span class="muted">No. Only links you share exist.</span>
+        </p>
+
+        <p><strong>What if the link says “Knock”?</strong><br>
+          <span class="muted">That room requires a passphrase. Enter it first, then you can turn chat on.</span>
         </p>
 
         <p><strong>Is anything stored?</strong><br>
-          <span class="muted">No chat history, no accounts, no persistence. The only “state” is what exists while your chat tab is open.</span>
+          <span class="muted">No chat history, no accounts, no persistence.</span>
         </p>
 
         <hr />
 
         <h2>Ready?</h2>
-        <p class="muted">If you want to participate, use the chat page.</p>
+        <p class="muted">If you want to chat, head to the chat page.</p>
         <p>
           <a class="btn primary" href="/herenow/chat" rel="nofollow">Go to /herenow/chat</a>
         </p>
@@ -274,9 +318,7 @@ close chat tab → CLOSED → IDLE
     </main>
 
     <footer>
-      <div>
-        HereNow is intentionally minimal. If a feature would require another lifecycle state, it doesn’t belong.
-      </div>
+      HereNow stays intentionally minimal. If a feature would need another lifecycle state, it doesn’t belong.
     </footer>
   </div>
 </body>
