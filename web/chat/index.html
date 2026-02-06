@@ -741,10 +741,6 @@ function updateChatInputState() {
 }
 
 function leaveSession(reason = "leave") {
-  if (state.isHost && state.enabled) {
-    broadcastData({ t: "room_closed", msg: "Host has ended the session. Room is now closed." });
-  }
-
   disconnectAll(reason);
 
   setStatus({ enabled: false });
@@ -942,7 +938,6 @@ function wireDataChannel(remotePeerId, dc) {
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (!msg || typeof msg.t !== "string") return;
 
- // CLEANED BLOCK: Replace lines 730-745 with this:
     if (msg.t === "hello") {
       if (msg.name && typeof msg.name === "string") {
         state.peerNames.set(remotePeerId, msg.name.slice(0, 24));
@@ -951,9 +946,9 @@ function wireDataChannel(remotePeerId, dc) {
       return;
     }
 
-    // This handles the 'Host Closes Session' logic we added
     if (msg.t === "room_closed") {
       showSystemNote(msg.msg || "Room closed by host.");
+      updateChatInputState();
       setTimeout(() => leaveSession("host_closed"), 2000); 
       return;
     }
@@ -984,14 +979,12 @@ function wireDataChannel(remotePeerId, dc) {
 
     if (msg.t === "join_request") {
         // Joiner is asking the host to approve them.
-        // Avoid confirm()/alert() — browsers may suppress dialogs and auto-deny.
         if (!state.isHost) return;
         if (!state.requireApproval) return;
 
         const pid = msg.peerId || remotePeerId;
         const name = safeName(msg.name || "Guest");
 
-        // If they're in cooldown, deny immediately with a clear message.
         if (isDenied(pid)) {
           const mins = state.denyMinutes || 15;
           sendData(pid, { t:"denied", mins, msg:"Access denied. Try again in "+mins+" minutes." });
@@ -1004,9 +997,6 @@ function wireDataChannel(remotePeerId, dc) {
         renderJoinRequests();
         return;
       }
-
-
-
 
     if (msg.t === "approved") {
       // Joiner: only accept approval from host
@@ -1021,7 +1011,6 @@ function wireDataChannel(remotePeerId, dc) {
 
     if (msg.t === "peer_approved") {
   if (msg.peerId && typeof msg.peerId === "string") {
-    // Add to local 'trusted' set so we can see their messages and send to them
     state.approvedByHost.add(msg.peerId);
   }
   updateChatInputState();
@@ -1039,7 +1028,6 @@ function wireDataChannel(remotePeerId, dc) {
         }
         state.myApproved = false;
         updateChatInputState();
-        // Disconnect quickly.
         closePeer(remotePeerId, "denied by host");
       }
       return;
@@ -1170,7 +1158,6 @@ function wireDataChannel(remotePeerId, dc) {
 
   for (const [peerId, p] of state.peers.entries()) {
     if (p.dc && p.dc.readyState === "open") {
-      // Logic fix: Only skip if approval is required AND the target isn't the host or approved
       if (state.requireApproval) {
         const isTargetApproved = state.approvedByHost.has(peerId) || peerId === state.hostId;
         if (!isTargetApproved) continue;
@@ -1296,7 +1283,6 @@ function renderParticipants() {
 
     let actions = '';
     if (peerId !== state.peerId) {
-      // CRITICAL: Nobody can mute the host (including the host themselves)
       const canMute = !(state.hostId && peerId === state.hostId);
       
       if (canMute) {
@@ -1362,13 +1348,9 @@ function approvePeer(peerId) {
 
   state.pendingJoinRequests.delete(peerId);
   state.approvedPeers.add(peerId);
-  // CRITICAL: Host must also track this locally to send messages TO this peer
   state.approvedByHost.add(peerId); 
 
-  // 1. Tell the joiner they are approved
   sendData(peerId, { t:"approved", by: state.peerId });
-  
-  // 2. TELL EVERYONE ELSE: This peer is now authorized
   broadcastData({ t:"peer_approved", peerId, by: state.peerId });
 
   showSystemNote(`${name} approved.`);
@@ -1402,7 +1384,6 @@ function sendPolicyTo(peerId) {
   
   ui.replyClear.addEventListener("click", () => setReplyTo(null));
 
-  // Mute and kick functionality moved to participant drawer only
 
 ui.enableBtn.addEventListener("click", () => {
     setStatus({ enabled: true });
@@ -1411,35 +1392,28 @@ ui.enableBtn.addEventListener("click", () => {
     updateChatInputState();
 
 
-    // Determine role / policy BEFORE connecting
     const existingRoomId = readRoomIdFromUrl();
     state.isHost = !existingRoomId;
 
-    // Host can set approval + cooldown before enabling.
-    // Joiners read approval requirement from the URL flag (?a=1).
     state.requireApproval = state.isHost ? !!ui.approvalToggle?.checked : readApprovalFlagFromUrl();
     state.denyMinutes = Math.max(1, parseInt(ui.cooldownSelect?.value || "15", 10) || 15);
 
     if (!state.isHost) {
-      // Joiners can't change host policy
       if (ui.approvalToggle) ui.approvalToggle.disabled = true;
       if (ui.cooldownSelect) ui.cooldownSelect.disabled = true;
       if (ui.approvalHostOnlyHint) ui.approvalHostOnlyHint.style.display = "inline";
     }
 
-    // Host generates a room id the first time they enable.
     let roomId = existingRoomId;
     if (!roomId) {
       roomId = generateRoomId();
       setRoomIdInUrl(roomId);
     } else {
-      // Preserve approval flag on join links (no-op for host).
       setRoomIdInUrl(roomId);
     }
 
     setRoomUi(roomId);
 
-    // Fresh peer identity per enabled session
     state.peerNames.clear();
 
     state.peerId = generatePeerId();
@@ -1450,12 +1424,19 @@ ui.enableBtn.addEventListener("click", () => {
 
     appendLog("Consent granted for this tab. Room prepared locally.");
 
-    renderParticipants(); // Initialize participant drawer
+    renderParticipants(); 
     connectSignaling(roomId);
   });
 
 ui.disableBtn.addEventListener("click", () => {
-  leaveSession("disabled");
+  if (state.isHost && state.enabled) {
+    broadcastData({ t: "room_closed", msg: "Host has ended the session. Room is now closed." });
+    setTimeout(() => {
+      leaveSession("disabled");
+    }, 150); 
+  } else {
+    leaveSession("disabled");
+  }
 });
 
 
@@ -1490,26 +1471,22 @@ function setFsLabel() {
 }
 
 async function toggleExpand() {
-  // If already in real fullscreen, exit it.
   if (document.fullscreenElement) {
     await document.exitFullscreen().catch(() => {});
     setFsLabel();
     return;
   }
 
-  // If in zen mode, exit it.
   if (document.body.classList.contains("zenMode")) {
     document.body.classList.remove("zenMode");
     setFsLabel();
     return;
   }
 
-  // Try real fullscreen on the Messages card.
   const target = document.getElementById("messagesCard") || document.documentElement;
   try {
     await target.requestFullscreen();
   } catch {
-    // Fullscreen blocked/unavailable -> fall back to zen mode.
     document.body.classList.add("zenMode");
   }
   setFsLabel();
@@ -1517,7 +1494,6 @@ async function toggleExpand() {
 
 ui.fsBtn?.addEventListener("click", toggleExpand);
 
-// Keep label accurate if user hits ESC to exit fullscreen
 document.addEventListener("fullscreenchange", setFsLabel);
 setFsLabel();
 
@@ -1525,7 +1501,6 @@ setFsLabel();
     const msg = ui.msgInput.value.trim();
     if (!msg) return;
 
-    // Approval gate
     if (state.requireApproval && !state.isHost && !state.myApproved) {
       showSystemNote("Waiting for host approval…");
       updateChatInputState();
@@ -1543,39 +1518,33 @@ setFsLabel();
     if (e.key === "Enter") ui.sendBtn.click();
   });
 
-  // init inert
   setStatus({ enabled: false });
   updateChatInputState();
 
-  // Pre-session role + UI (no networking yet)
   const initialRoomId = readRoomIdFromUrl();
   state.isHost = !initialRoomId;
 
-  // Update UI based on role (host vs joiner)
   function updateRoleBasedUI() {
-    // Show/Hide the whole Share Link section for everyone based on session state
     const step2 = document.getElementById("step2");
-    if (step2) step2.style.display = state.enabled ? "" : ""; // Keep visible to show link
+    if (step2) step2.style.display = state.enabled ? "" : ""; 
 
     if (state.isHost) {
       if (ui.step1HostText) ui.step1HostText.style.display = "";
       if (ui.step1JoinerText) ui.step1JoinerText.style.display = "none";
       if (ui.approvalToggleLabel) ui.approvalToggleLabel.style.display = "";
       if (ui.cooldownSelectLabel) ui.cooldownSelectLabel.style.display = "";
-      if (ui.copyBtn) ui.copyBtn.style.display = ""; // Ensure copy button is visible for host
+      if (ui.copyBtn) ui.copyBtn.style.display = ""; 
     } else {
       if (ui.step1HostText) ui.step1HostText.style.display = "none";
       if (ui.step1JoinerText) ui.step1JoinerText.style.display = "";
       if (ui.approvalToggleLabel) ui.approvalToggleLabel.style.display = "none";
       if (ui.cooldownSelectLabel) ui.cooldownSelectLabel.style.display = "none";
-      if (ui.copyBtn) ui.copyBtn.style.display = "none"; // Joiners don't need to copy/share
+      if (ui.copyBtn) ui.copyBtn.style.display = "none"; 
     }
   }
 
-  // Call it immediately to set up the UI
   updateRoleBasedUI();
 
-  // Joiners read approval requirement from URL. Host can pre-configure.
   state.requireApproval = state.isHost ? !!ui.approvalToggle?.checked : readApprovalFlagFromUrl();
   state.denyMinutes = Math.max(1, parseInt(ui.cooldownSelect?.value || "15", 10) || 15);
 
@@ -1588,14 +1557,13 @@ setFsLabel();
   if (initialRoomId) setRoomUi(initialRoomId);
   else resetRoomUi();
 
-  // Host-only policy changes (safe before enabling)
   if (ui.approvalToggle) {
     ui.approvalToggle.addEventListener("change", () => {
       if (!state.isHost) return;
       state.requireApproval = !!ui.approvalToggle.checked;
 
       if (state.roomId) {
-        setRoomIdInUrl(state.roomId); // updates ?a=1 flag too
+        setRoomIdInUrl(state.roomId); 
         setRoomUi(state.roomId);
       }
       if (state.enabled) {
@@ -1617,38 +1585,8 @@ setFsLabel();
     state.hostId = state.hostId || state.peerId;
     broadcastData({ t:"policy", requireApproval: !!state.requireApproval, denyMinutes: state.denyMinutes, hostId: state.hostId });
   }
-ui.enableBtn.addEventListener("click", () => {
-    const name = getDisplayName();
-    if (!name) {
-      alert("Please enter a handle first.");
-      return;
-    }
-
-    const initialRoomId = readRoomIdFromUrl();
-    state.isHost = !initialRoomId;
-
-    if (state.isHost) {
-      state.roomId = generateRoomId();
-      state.requireApproval = !!ui.approvalToggle?.checked;
-    } else {
-      state.roomId = initialRoomId;
-      state.requireApproval = readApprovalFlagFromUrl();
-    }
-
-    state.peerId = generatePeerId();
-    setRoomUi(state.roomId);
-    setRoomIdInUrl(state.roomId);
-
-    setStatus({ enabled: true });
-    document.body.classList.add("sessionActive");
-    connectSignaling(state.roomId);
-    updateChatInputState();
-  });
 
 })();
 </script>
-
-
-
 </body>
 </html>
