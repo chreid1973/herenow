@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>HereNow — Private chat, by link, by choice</title>
+  <meta name="description" content="HereNow is a consent-first, short-lived chat. Set simple room rules, then turn chat on to create a share link. Close the tab and you’re out." />
+
+  <style>
+
+    /* --- Optional theme swap (DiggTinder about-page look) ---
+       If you paste DiggTinder's about-page CSS variables + core styles here,
+       HereNow will inherit that vibe. Send me the DiggTinder about page CSS (or HTML)
+       and I’ll match it precisely. */
+
+    :root{
+      --bg:#0b1020;
+      --panel:#0f1730;
+      --text:#e9ecff;
+      --muted:#b7c0ff;
+      --faint:#7f8ad6;
+      --line:rgba(233,236,255,.15);
+      --good:#47e6b1;
+      --warn:#ffcc66;
+      --link:#78a6ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(120,166,255,.15), transparent 60%),
+                  radial-gradient(1000px 650px at 80% 20%, rgba(71,230,177,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.5;
+    }
+    a{color:var(--link); text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px; margin:0 auto; padding:28px 18px 64px}
+    header{
+      display:flex;
+      gap:16px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      padding:18px 18px 16px;
+      background: rgba(15,23,48,.72);
+      border:1px solid var(--line);
+      border-radius:14px;
+      backdrop-filter: blur(8px);
+    }
+    .brand h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:.2px;
+    }
+    .brand p{
+      margin:6px 0 0;
+      color:var(--muted);
+      max-width:70ch;
+    }
+    .cta{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .btn{
+      display:inline-block;
+      padding:10px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:600;
+    }
+    .btn.primary{
+      border-color: rgba(71,230,177,.35);
+      background: rgba(71,230,177,.10);
+    }
+    .btn.primary:hover{background: rgba(71,230,177,.16)}
+    .btn:hover{background: rgba(255,255,255,.06)}
+    main{margin-top:16px}
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+    }
+    @media (max-width: 860px){
+      .grid{grid-template-columns:1fr}
+    }
+    section{
+      padding:18px 18px 16px;
+      background: rgba(15,23,48,.58);
+      border:1px solid var(--line);
+      border-radius:14px;
+    }
+    h2{
+      margin:0 0 10px;
+      font-size:16px;
+      letter-spacing:.2px;
+    }
+    .muted{color:var(--muted)}
+    .faint{color:var(--faint)}
+    ul{margin:10px 0 0; padding-left:18px}
+    li{margin:6px 0}
+    .rule{
+      display:flex;
+      gap:10px;
+      margin:10px 0;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--good);
+      box-shadow: 0 0 0 3px rgba(71,230,177,.10);
+    }
+    .dot.warn{
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(255,204,102,.10);
+    }
+    hr{
+      border:0;
+      border-top:1px solid var(--line);
+      margin:14px 0;
+    }
+    code, pre{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    pre{
+      margin:10px 0 0;
+      padding:12px 12px;
+      background: rgba(0,0,0,.20);
+      border:1px solid rgba(233,236,255,.12);
+      border-radius:12px;
+      overflow:auto;
+      color: #d9defe;
+    }
+    footer{
+      margin-top:14px;
+      padding:14px 18px;
+      color:var(--faint);
+      font-size:13px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <h1>HereNow</h1>
+        <p>
+          A private chat that only exists while you’re here.
+          Nothing runs in the background.
+          <strong>Close the chat tab and you’re out.</strong>
+        </p>
+      </div>
+
+      <div class="cta" aria-label="Primary actions">
+        <a class="btn primary" href="/herenow/chat" rel="nofollow">Open chat</a>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section>
+        <h2>The simple rules</h2>
+        <p class="muted">
+          HereNow is intentionally small. It’s not a platform. It’s a moment.
+          If you don’t open the chat page and say yes, nothing happens.
+        </p>
+
+        <hr />
+
+        <h2>How to start</h2>
+        <p class="muted">
+          The chat page is a two-step flow: set your room rules first, then turn chat on.
+        </p>
+        <ul>
+          <li><strong>Step 1 — Room setup:</strong> choose a display name, and optionally enable Knock mode (passphrase).</li>
+          <li><strong>Step 2 — Turn chat on:</strong> a share link is created. Copy it and send it to the people you want.</li>
+        </ul>
+        <p class="faint">
+          If Knock mode is enabled, the link includes a tiny “knock” flag. Joiners must enter the passphrase first, then they can turn chat on.
+          The passphrase is never included in the link.
+        </p>
+
+        <div class="rule">
+          <div class="badge"><span class="dot"></span> This page is quiet</div>
+          <div class="muted">No prompts. No networking. Reading this page changes nothing.</div>
+        </div>
+
+        <div class="rule">
+          <div class="badge"><span class="dot"></span> You choose to join</div>
+          <div class="muted">The chat page asks before anything connects — every time, for that tab.</div>
+        </div>
+
+        <div class="rule">
+          <div class="badge"><span class="dot"></span> Leaving is instant</div>
+          <div class="muted">Close the chat tab and the session ends. No history is kept.</div>
+        </div>
+
+        <div class="rule">
+          <div class="badge"><span class="dot warn"></span> Link-only</div>
+          <div class="muted">Only people you share a link with can join. No public rooms, no directory, no “who’s online”.</div>
+        </div>
+
+        <hr />
+
+        <h2>What it is (and isn’t)</h2>
+        <ul>
+          <li><strong>It is</strong> a short-lived chat session between people who have the link.</li>
+          <li><strong>It is</strong> consent-first: it stays off until you explicitly turn it on.</li>
+          <li><strong>It is not</strong> a social network, community platform, or identity system.</li>
+          <li><strong>It is not</strong> a background service. If you’re not on the chat page, it’s asleep.</li>
+        </ul>
+
+        <hr />
+
+        <h2>How it works (plain English)</h2>
+        <p class="muted">
+          Your browser creates a temporary chat link. People join only by opening that link and choosing to participate.
+        </p>
+        <ul>
+          <li>Once connected, messages go directly between browsers.</li>
+          <li>A tiny relay is used only for introductions (so peers can find each other).</li>
+          <li>No accounts. No saved history. No replay. No recovery.</li>
+        </ul>
+
+        <hr />
+
+        <h2>Abuse brakes (built-in)</h2>
+        <p class="muted">
+          HereNow isn’t a platform, so the safety approach is simple: friction before participation, and quick exits.
+        </p>
+        <ul>
+          <li><strong>Kick + 60-minute deny</strong> (this tab only) from the People drawer.</li>
+          <li><strong>New link (room reset)</strong> to boot everyone and invalidate the old link.</li>
+          <li><strong>Silent limits</strong> (message size + rate limits) to keep spam from melting the room.</li>
+        </ul>
+
+        <h2>Optional: Knock mode</h2>
+        <p class="muted">
+          If you want extra friction, you can require a passphrase. The link lets people connect, but they can’t chat until they enter it.
+          The passphrase is never included in the link and nothing is saved.
+        </p>
+
+        <pre aria-label="Lifecycle">
+IDLE (this page) → IDLE
+open chat page → CONSENT → ACTIVE
+close chat tab → CLOSED → IDLE
+        </pre>
+      </section>
+
+      <section>
+        <h2>Privacy posture</h2>
+        <ul>
+          <li>No analytics on this page.</li>
+          <li>No scripts on this page.</li>
+          <li>No background polling. No “phone home”.</li>
+          <li>Chat exists only while the chat tab is open.</li>
+        </ul>
+
+        <hr />
+
+        <h2>Use it safely</h2>
+        <p class="muted">
+          This is a lightweight tool, not a moderation platform:
+        </p>
+        <ul>
+          <li>Share chat links only with people you intend to talk to.</li>
+          <li>Assume participants can screenshot.</li>
+          <li>If you don’t trust the link, don’t join.</li>
+        </ul>
+
+        <hr />
+
+        <h2>FAQ</h2>
+        <p><strong>Does visiting this page start anything?</strong><br>
+          <span class="muted">No. This page is inert by design.</span>
+        </p>
+
+        <p><strong>Does opening the chat page auto-join?</strong><br>
+          <span class="muted">No. You’ll set your room rules first, then you choose whether to turn chat on.</span>
+        </p>
+
+        <p><strong>Is there a public lobby?</strong><br>
+          <span class="muted">No. Only links you share exist.</span>
+        </p>
+
+        <p><strong>What if the link says “Knock”?</strong><br>
+          <span class="muted">That room requires a passphrase. Enter it first, then you can turn chat on.</span>
+        </p>
+
+        <p><strong>Is anything stored?</strong><br>
+          <span class="muted">No chat history, no accounts, no persistence.</span>
+        </p>
+
+        <hr />
+
+        <h2>Ready?</h2>
+        <p class="muted">If you want to chat, head to the chat page.</p>
+        <p>
+          <a class="btn primary" href="/herenow/chat" rel="nofollow">Go to /herenow/chat</a>
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      HereNow stays intentionally minimal. If a feature would need another lifecycle state, it doesn’t belong.
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HereNow — Chat</title>
+
+<style>
+:root {
+  --bg: #050814;
+  --panel: #0b1222;
+  --border: #1c2744;
+  --text: #e6ebff;
+  --muted: #9aa4c7;
+  --accent: #6aa7ff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: radial-gradient(circle at top, #0b1633, #02040b 60%);
+  color: var(--text);
+}
+
+/* ---------- Layout ---------- */
+
+.chatRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(to bottom, #0b1222, #070b16);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.setup {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setup label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.setup input {
+  width: 100%;
+  padding: 10px;
+  background: #02040b;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.statusBar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- Muted Bar ---------- */
+
+.muted-bar {
+  padding: 8px 12px;
+  background: #1a223d;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.muted-bar.hidden {
+  display: none;
+}
+
+.muted-chip {
+  background: #2a3563;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---------- Messages ---------- */
+
+.chatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.message {
+  max-width: 70%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0b1222;
+  border-left: 4px solid var(--accent);
+}
+
+.message.you {
+  margin-left: auto;
+  border-left: none;
+  border-right: 4px solid #6affb3;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.actions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  font-size: 11px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  color: var(--text);
+}
+
+/* ---------- Composer ---------- */
+
+.composer {
+  border-top: 1px solid var(--border);
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.composer input {
+  flex: 1;
+  padding: 10px;
+  background: #02040b;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.composer button {
+  padding: 10px 14px;
+  background: #1c2744;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+<div class="chatRoot">
+
+  <div class="header">
+    <h1>HereNow — Chat</h1>
+    <p>This page stays idle until you explicitly opt in. Close tab = chat off.</p>
+  </div>
+
+  <div class="setup">
+    <label>Chat handle (session-only)</label>
+    <input id="handleInput" placeholder="e.g. frodo" />
+  </div>
+
+  <div class="statusBar" id="status">
+    Session idle.
+  </div>
+
+  <div id="mutedUsersBar" class="muted-bar hidden"></div>
+
+  <div id="messages" class="chatMessages"></div>
+
+  <div class="composer">
+    <input id="msgInput" placeholder="Type a message…" />
+    <button id="sendBtn">Send</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------- Session State ---------- */
+
+const isHost = !location.search.includes("join=");
+const mutedUsers = new Map();
+
+const messagesEl = document.getElementById("messages");
+const mutedBar = document.getElementById("mutedUsersBar");
+
+/* ---------- Mute Handling ---------- */
+
+function muteUser(peerId, minutes) {
+  clearMute(peerId);
+  const timeout = setTimeout(() => clearMute(peerId), minutes * 60000);
+  mutedUsers.set(peerId, timeout);
+  renderMutedBar();
+}
+
+function clearMute(peerId) {
+  const t = mutedUsers.get(peerId);
+  if (t) clearTimeout(t);
+  mutedUsers.delete(peerId);
+  renderMutedBar();
+}
+
+function renderMutedBar() {
+  mutedBar.innerHTML = "";
+  if (mutedUsers.size === 0) {
+    mutedBar.classList.add("hidden");
+    return;
+  }
+  mutedBar.classList.remove("hidden");
+  mutedUsers.forEach((_, peerId) => {
+    const btn = document.createElement("button");
+    btn.className = "muted-chip";
+    btn.textContent = `Unmute ${peerId}`;
+    btn.onclick = () => clearMute(peerId);
+    mutedBar.appendChild(btn);
+  });
+}
+
+/* ---------- Message Rendering ---------- */
+
+function addMessage({ id, from, text, you }) {
+  if (mutedUsers.has(from)) return;
+
+  const div = document.createElement("div");
+  div.className = "message" + (you ? " you" : "");
+  div.dataset.peer = from;
+
+  div.innerHTML = `
+    <div class="meta">${from}</div>
+    <div>${text}</div>
+    <div class="actions">
+      <button onclick="replyTo('${from}')">Reply</button>
+      <button onclick="muteUser('${from}', 15)">Mute 15m</button>
+      ${isHost ? `<button onclick="kickUser('${from}')">Kick</button>` : ``}
+    </div>
+  `;
+
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* ---------- Controls ---------- */
+
+function replyTo(peer) {
+  const input = document.getElementById("msgInput");
+  input.value = `@${peer} `;
+  input.focus();
+}
+
+function kickUser(peer) {
+  if (!isHost) return;
+  alert(`Kicked ${peer} (session-only)`);
+}
+
+/* ---------- Demo Wiring ---------- */
+/* Replace with your existing signaling hooks */
+
+document.getElementById("sendBtn").onclick = () => {
+  const input = document.getElementById("msgInput");
+  if (!input.value.trim()) return;
+  addMessage({ from: "You", text: input.value, you: true });
+  input.value = "";
+};
+</script>
+
+</body>
+</html>

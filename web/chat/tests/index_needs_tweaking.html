@@ -97,19 +97,46 @@
   display:flex;
   flex-direction:column;
   gap:10px;
-/* Make Messages card layout stack and allow transcript to stretch */
+}
+
+/* Messages card layout stacks and transcript stretches */
 #messagesCard{
-  display: flex;
-  flex-direction: column;
+  display:flex;
+  flex-direction:column;
 }
-
-/* Transcript area grows to fill available space */
 #chatFeed{
-  flex: 1;
-  min-height: 280px; /* normal mode baseline */
+  flex:1;
+  min-height:280px; /* normal mode baseline */
 }
 
+/* Session active makes transcript taller */
+body.sessionActive .chatFeed{
+  min-height:52vh;
+  max-height:52vh;
 }
+
+/* Chat expand / zen mode */
+body.zenMode{
+  overflow:hidden;
+}
+body.zenMode #messagesCard{
+  position:fixed;
+  inset:12px;
+  z-index:9999;
+  margin:0;
+  max-width:none;
+  height:calc(100vh - 24px);
+}
+body.zenMode details,
+body.zenMode #messagesCard p.faint{
+  display:none;
+}
+/* Required for flex children */
+body.zenMode #chatFeed{
+  min-height:0;
+  height:auto;
+}
+
 
 .bubble{
   max-width:80%;
@@ -173,57 +200,7 @@
   background:rgba(255,255,255,.04);
 }
 
-/* --- optional: enlarge chat feed when session active --- */
-body.sessionActive .chatFeed{
-  min-height: 52vh;
-  max-height: 52vh;
-}
-/* --- chat expand / zen mode --- */
-body.zenMode{
-  overflow:hidden;
-}
-body.zenMode .messageRow {
-  padding-bottom: 4px;
-}
-
-body.zenMode .messageRow input {
-  font-size: 15px;
-}
-
-body.zenMode #messagesCard{
-  position:fixed;
-  inset:12px;
-  z-index:9999;
-  margin:0;
-  max-width:none;
-  height:calc(100vh - 24px);
-}
-body.zenMode details,
-body.zenMode #messagesCard p.faint{
-  display:none;
-}
-
-/* Key: allow flexbox to shrink/expand properly */
-body.zenMode #chatFeed{
-  min-height:0;      /* REQUIRED for flex children */
-  height:auto;
-}
-
-/* Make the Messages card stack vertically and allow the transcript to grow */
-#messagesCard{
-  display:flex;
-  flex-direction:column;
-}
-
-/* Let the transcript fill the available space */
-#chatFeed{
-  flex:1;
-  min-height:320px;     /* normal baseline */
-  max-height:none;      /* remove any cap */
-}
-
-
-    /* --- expand button --- */
+/* --- expand button --- */
     #fsBtn{ min-width:92px; white-space:nowrap; }
 .messageRow {
   display: flex;
@@ -235,6 +212,18 @@ body.zenMode #chatFeed{
   flex: 1 1 auto;
   min-width: 0;
 }
+
+
+/* Join request queue (host-only, session-only) */
+.requests{margin:10px 0 12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(10,14,30,.35)}
+.reqHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.reqTitle{font-weight:700}
+.reqHint{color:var(--muted);font-size:12px;line-height:1.35;max-width:520px}
+.reqList{display:flex;flex-direction:column;gap:8px}
+.reqRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.reqName{display:flex;align-items:center;gap:8px;font-weight:600}
+.reqDot{width:8px;height:8px;border-radius:999px;background:var(--accent-2);box-shadow:0 0 0 3px rgba(8,217,214,.15)}
+.reqBtns{display:flex;gap:8px}
 
 </style>
 </head>
@@ -255,7 +244,69 @@ body.zenMode #chatFeed{
     </header>
 
     <main class="grid">
-      <section aria-labelledby="statusTitle">
+<section id="step1">
+        <h2 style="margin:0 0 10px; font-size:16px">Step 1 — Room setup</h2>
+        <p class="muted" style="margin:0 0 10px">
+          Choose a handle and (optionally) enable host approval. Nothing connects until you start the session.
+        </p>
+
+        <label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
+          Chat handle (no real names)
+        </label>
+        <input
+          id="displayNameInput"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="none"
+          maxlength="24"
+          placeholder="@3HPM"
+        />
+        <p class="faint" style="margin:6px 0 0;">
+          Not saved. Session-only.
+        </p>
+
+        <div class="box" style="margin-top:14px">
+          <div style="font-weight:800; margin-bottom:6px">Join approval</div>
+          <div class="muted" style="margin-bottom:10px">
+            If enabled, new joiners must be approved by the host before they can send/receive chat. No passphrases.
+          </div>
+          <div class="row" style="align-items:center">
+            <label class="faint" for="approvalToggle" style="display:flex; align-items:center; gap:10px; font-weight:800">
+              <input id="approvalToggle" type="checkbox" />
+              Require host approval
+            </label>
+            <span class="faint" id="approvalHostOnlyHint" style="display:none">Host-only setting.</span>
+          </div>
+
+          <div class="row" style="margin-top:10px; align-items:center">
+            <label class="faint" for="cooldownSelect" style="min-width:160px">Deny/Kick cooldown</label>
+            <select id="cooldownSelect" class="btn" style="padding:8px 12px">
+              <option value="5">5 minutes</option>
+              <option value="15" selected>15 minutes</option>
+              <option value="60">60 minutes</option>
+            </select>
+            <span class="faint">Applies to Deny and Kick. Session-only (in-memory).</span>
+          </div>
+        </div>
+
+        <h3 style="margin:16px 0 10px; font-size:14px">Room link</h3>
+        <p class="muted" style="margin:0 0 10px">
+          Generated when you start the session.
+        </p>
+
+        <div class="row">
+          <input id="roomInput" type="text" value="(not yet created)" readonly />
+          <button class="btn" id="copyBtn" type="button" disabled>Copy link</button>
+          <span id="copyToast" class="toast good" style="display:none; margin-left:8px;">Copied</span>
+        </div>
+
+        <p class="" style="margin:10px 0 0">
+          Rule: no discovery. Rooms exist only as URLs you explicitly share.
+        </p>
+      </section>
+
+<section aria-labelledby="statusTitle">
         <h2 id="statusTitle" class="sr">Session status</h2>
         <div class="row" style="justify-content:space-between">
           <div class="row">
@@ -278,42 +329,8 @@ body.zenMode #chatFeed{
         </div>
       </section>
 
-      <section>
-        <h2 style="margin:0 0 10px; font-size:16px">Room link</h2>
-        <p class="muted" style="margin:0 0 10px">
-          Start a session to generate an invite link.
-        </p>
-
-        <div class="row">
-          <input id="roomInput" type="text" value="(not yet created)" readonly />
-          <button class="btn" id="copyBtn" type="button" disabled>Copy link</button>
-<span id="copyToast" class="toast good" style="display:none; margin-left:8px;">Copied</span>
-
-        </div>
-<label class="faint" for="displayNameInput" style="display:block; margin:12px 0 6px;">
-  Chat handle (no real names)
-</label>
-
-<input
-  id="displayNameInput"
-  type="text"
-  autocomplete="off"
-  spellcheck="false"
-  autocapitalize="none"
-  maxlength="24"
-  placeholder="@3HPM"
-/>
-
-<p class="faint" style="margin:6px 0 0;">
-  Not saved. Session-only.
-</p>
-
-        <p class="" style="margin:10px 0 0">
-          Rule: no discovery. Rooms exist only as URLs you explicitly share.
-        </p>
-      </section>
-
-<section class="card" id="messagesCard">
+      
+      <section class="card" id="messagesCard">
 
   <h2 style="margin:0 0 10px; font-size:16px">Messages</h2>
   <p class="muted" style="margin:0 0 10px">
@@ -321,17 +338,29 @@ body.zenMode #chatFeed{
   </p>
 
   <!-- User-friendly chat transcript -->
+          <div id="joinRequests" class="requests" style="display:none" aria-label="Join requests">
+            <div class="reqHead">
+              <div class="reqTitle">Join requests</div>
+              <div class="reqHint">Host-only. Approve to let them chat; deny to block for the selected cooldown.</div>
+            </div>
+            <div id="joinReqList" class="reqList"></div>
+          </div>
+
   <div id="chatFeed" class="chatFeed" aria-label="Chat transcript"></div>
 
   
 <div id="replyBar" class="replyBar" style="display:none;">
   <span id="replyText" class="faint"></span>
-  <button id="replyClear" class="btn" type="button" style="padding:6px 10px;">×</button>
+  <div class="row" style="margin-left:auto; gap:8px">
+    <button id="muteBtn" class="btn" type="button" style="padding:6px 10px;">Mute</button>
+    <button id="kickBtn" class="btn danger" type="button" style="padding:6px 10px; display:none;">Kick</button>
+    <button id="replyClear" class="btn" type="button" style="padding:6px 10px;">×</button>
+  </div>
 </div>
 <div class="messageRow">
   <input id="msgInput" type="text" placeholder="Type a message" />
   <button id="sendBtn" class="btn">Send</button>
-  <button id="fsBtn" class="btn">Exit Full Screen</button>
+  <button id="fsBtn" class="btn">Expand</button>
 </div>
 
 
@@ -387,18 +416,28 @@ body.zenMode #chatFeed{
   function setRoomIdInUrl(roomId) {
     const url = new URL(window.location.href);
     url.searchParams.set("r", roomId);
+    if (state.requireApproval) url.searchParams.set("a", "1");
+    else url.searchParams.delete("a");
     history.replaceState(null, "", url.toString());
   }
 
   function clearRoomIdFromUrl() {
     const url = new URL(window.location.href);
     url.searchParams.delete("r");
+    url.searchParams.delete("a");
     history.replaceState(null, "", url.pathname);
+  }
+
+  function readApprovalFlagFromUrl() {
+    const url = new URL(window.location.href);
+    return url.searchParams.get("a") === "1";
   }
 
   function currentShareUrl(roomId) {
     const url = new URL(window.location.href);
     url.searchParams.set("r", roomId);
+    if (state.requireApproval) url.searchParams.set("a", "1");
+    else url.searchParams.delete("a");
     return url.toString();
   }
 
@@ -433,18 +472,30 @@ body.zenMode #chatFeed{
     netText: $("netText"),
     enableBtn: $("enableBtn"),
     disableBtn: $("disableBtn"),
+
+    // Step 1
     roomInput: $("roomInput"),
     copyBtn: $("copyBtn"),
+    copyToast: $("copyToast"),
+    displayNameInput: $("displayNameInput"),
+    approvalToggle: $("approvalToggle"),
+    cooldownSelect: $("cooldownSelect"),
+    approvalHostOnlyHint: $("approvalHostOnlyHint"),
+
+    // Messages
     log: $("log"),
     msgInput: $("msgInput"),
     sendBtn: $("sendBtn"),
     chatFeed: $("chatFeed"),
-copyToast: $("copyToast"),
-fsBtn: document.getElementById("fsBtn"),
+    joinRequests: $("joinRequests"),
+    joinReqList: $("joinReqList"),
+    fsBtn: $("fsBtn"),
 
-    replyBar: document.getElementById("replyBar"),
-    replyText: document.getElementById("replyText"),
-    replyClear: document.getElementById("replyClear"),
+    replyBar: $("replyBar"),
+    replyText: $("replyText"),
+    replyClear: $("replyClear"),
+    muteBtn: $("muteBtn"),
+    kickBtn: $("kickBtn"),
   };
 
   const state = {
@@ -454,15 +505,32 @@ fsBtn: document.getElementById("fsBtn"),
     peerId: null,
     ws: null,
 
+    // Role / policy
+    isHost: false,
+    hostId: null,
+    requireApproval: false,
+    denyMinutes: 15,
+
+    // session-only abuse controls (in-memory)
+    denyUntilByPeer: new Map(),   // peerId -> epoch ms
+    approvedPeers: new Set(),     // host only
+    approvedByHost: new Set(),    // all peers: peerIds host says are approved
+    myApproved: false,
+    pendingJoinRequests: new Map(), // host: peerId -> { name, ts }
+    joinAnnounced: new Set(),      // avoid duplicate join/leave notes
+
+    // mute is local to this tab
+    mutedPeers: new Set(),
+
     // peers: peerId -> { pc, dc, makingOffer, madeOffer }
     peers: new Map(),
 
     // track peers we've seen (prevents hello loops; enables late-join handshake)
     seenPeers: new Set(),
 
-
     // peer labels (session-only): peerId -> handle
     peerNames: new Map(),
+
     rtcConfig: {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -477,6 +545,17 @@ function hashHue(str) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % 360;
 }
+
+function getShareUrl(roomId){
+  const u = new URL(location.href);
+  u.searchParams.set('r', roomId);
+  u.searchParams.delete('a');
+  u.searchParams.delete('host');
+  // Keep path at /herenow/chat (no hash).
+  u.hash = '';
+  return u.toString();
+}
+
 
 function peerColor(key) {
   const hue = hashHue(key || "peer");
@@ -496,6 +575,10 @@ function setReplyTo(obj) {
   ui.replyBar.style.display = "flex";
   const snippet = String(obj.text || "").trim().slice(0, 80);
   ui.replyText.textContent = `Replying to ${obj.name}: “${snippet}${snippet.length >= 80 ? "…" : ""}”`;
+  const canTarget = !!replyTo && !!replyTo.peerId && replyTo.peerId !== state.peerId;
+  if (ui.muteBtn) ui.muteBtn.style.display = canTarget ? "" : "none";
+  if (ui.kickBtn) ui.kickBtn.style.display = (canTarget && state.isHost) ? "" : "none";
+
 }
 
 function makeMsgId() {
@@ -585,8 +668,17 @@ window.addEventListener("message", (ev) => {
   function setRoomUi(roomId) {
     state.roomId = roomId;
     state.roomUrl = currentShareUrl(roomId);
+
     ui.roomInput.value = state.roomUrl;
-    ui.copyBtn.disabled = !(state.enabled && state.roomUrl);
+
+    // Only host can copy/share from the UI (joiners already have the link).
+    if (state.isHost) {
+      ui.copyBtn.disabled = !(state.enabled && state.roomUrl);
+      ui.copyBtn.style.display = "";
+    } else {
+      ui.copyBtn.disabled = true;
+      ui.copyBtn.style.display = "none";
+    }
   }
 
   function resetRoomUi() {
@@ -623,20 +715,34 @@ function setStatus({ enabled }) {
 }
 
 function updateChatInputState() {
-  const anyOpen = [...state.peers.values()]
-    .some(p => p.dc && p.dc.readyState === "open");
+  const anyOpen = Array.from(state.peers.values()).some((p) => p.dc && p.dc.readyState === "open");
+  let canChat = state.enabled && anyOpen;
 
-  ui.msgInput.disabled = !anyOpen;
-  ui.sendBtn.disabled = !anyOpen;
+  if (state.requireApproval && !state.isHost) {
+    if (!state.myApproved) canChat = false;
+  }
+
+  ui.msgInput.disabled = !canChat;
+  ui.sendBtn.disabled = !canChat;
 
   if (!state.enabled) {
-    ui.msgInput.placeholder = "Start session to send messages";
-  } else if (!anyOpen) {
-    ui.msgInput.placeholder = "Waiting for someone to join";
-  } else {
-    ui.msgInput.placeholder = "Type a message";
+    ui.msgInput.placeholder = "Chat is off (enable session first)";
+    return;
   }
+
+  if (!anyOpen) {
+    ui.msgInput.placeholder = "Waiting for someone to join";
+    return;
+  }
+
+  if (state.requireApproval && !state.isHost && !state.myApproved) {
+    ui.msgInput.placeholder = "Waiting for host approval…";
+    return;
+  }
+
+  ui.msgInput.placeholder = "Type a message";
 }
+
 
   // ---------- signaling ----------
   function wsUrlForRoom(roomId) {
@@ -823,50 +929,174 @@ function leaveSession(reason = "leave") {
   }
 
 function wireDataChannel(remotePeerId, dc) {
-  dc.addEventListener("open", () => {
-    appendLog(`RTC: data channel open with ${remotePeerId}`);
+  const peer = state.peers.get(remotePeerId);
+  if (!peer) return;
 
-    // One-time label share (session-only)
-    try {
-      dc.send(JSON.stringify({ t: "hello", displayName: getDisplayName(), ts: Date.now() }));
-    } catch {}
+  peer.dc = dc;
+
+  dc.onopen = () => {
+    appendLog(`DataChannel open with ${remotePeerId}`);
+
+    // Always exchange handles (session-only)
+    sendData(remotePeerId, { t: "hello", name: getDisplayName() || "" });
+
+    // Host announces itself + policy
+    if (state.isHost) {
+      state.hostId = state.peerId;
+      state.approvedByHost.add(state.peerId);
+      state.approvedPeers.add(state.peerId);
+
+      sendData(remotePeerId, { t: "host_announce", hostId: state.peerId });
+      sendPolicyTo(remotePeerId);
+
+      // If not using approval, everyone is effectively "approved"
+      if (!state.requireApproval) {
+        sendData(remotePeerId, { t: "approved", peerId: remotePeerId, by: state.peerId });
+        broadcastData({ t: "peer_approved", peerId: remotePeerId, by: state.peerId });
+      }
+    } else {
+      // Joiner: if approval required, request it (one request per new connection)
+      if (state.requireApproval && !state.myApproved) {
+        sendData(remotePeerId, { t: "join_request", name: getDisplayName() || "", ts: Date.now() });
+      }
+    }
 
     updateChatInputState();
-  });
+  };
 
-  dc.addEventListener("close", () => {
-    appendLog(`RTC: data channel closed with ${remotePeerId}`);
+  dc.onclose = () => {
+    appendLog(`DataChannel closed with ${remotePeerId}`);
     updateChatInputState();
-  });
+  };
 
-  dc.addEventListener("message", (ev) => {
-    const raw = typeof ev.data === "string" ? ev.data : "";
-    let obj = null;
+  dc.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (!msg || typeof msg.t !== "string") return;
 
-    // Try JSON first (new protocol). Fall back to plain text (older peers).
-    try { obj = JSON.parse(raw); } catch {}
-
-    if (obj && obj.t === "hello") {
-      const name = (obj.displayName || "").toString().trim();
-      if (name) state.peerNames.set(remotePeerId, name);
-      appendLog(`${remotePeerId}: [hello${name ? " " + name : ""}]`);
+    if (msg.t === "hello") {
+      if (msg.name && typeof msg.name === "string") {
+        state.peerNames.set(remotePeerId, msg.name.slice(0, 24));
+      }
       return;
     }
 
-    if (obj && obj.t === "chat") {
-      const text = (obj.text ?? "").toString();
-      const name = (obj.displayName || "").toString().trim();
-      if (name) state.peerNames.set(remotePeerId, name);
-      appendLog(`${remotePeerId}: ${text}`);
-      addBubble("peer", text, remotePeerId, obj.replyTo || null);
+    if (msg.t === "host_announce") {
+      if (msg.hostId && typeof msg.hostId === "string") {
+        // First host wins; ignore conflicting announcements.
+        if (!state.hostId) state.hostId = msg.hostId;
+        state.approvedByHost.add(msg.hostId);
+      }
+      updateChatInputState();
       return;
     }
 
-    // Plain text fallback
-    const text = raw || "[binary]";
-    appendLog(`${remotePeerId}: ${text}`);
-    addBubble("peer", text, remotePeerId, null);
-  });
+    if (msg.t === "policy") {
+      if (!state.isHost) {
+        state.requireApproval = !!msg.requireApproval;
+        // If host approval is required, non-hosts must proactively request access.
+        if (!state.isHost && state.requireApproval && !state.myApproved) {
+          try { sendControl({ t: 'join_request', handle: getHandle() }); } catch (e) {}
+          showSystemNote('Waiting for host approval…');
+        }
+      }
+      if (msg.hostId && typeof msg.hostId === "string" && !state.hostId) state.hostId = msg.hostId;
+      updateChatInputState();
+      return;
+    }
+
+    if (msg.t === "join_request") {
+        // Joiner is asking the host to approve them.
+        // Avoid confirm()/alert() — browsers may suppress dialogs and auto-deny.
+        if (!state.isHost) return;
+        if (!state.requireApproval) return;
+
+        const pid = msg.peerId || remotePeerId;
+        const name = safeName(msg.name || "Guest");
+
+        // If they're in cooldown, deny immediately with a clear message.
+        if (isDenied(pid)) {
+          const mins = state.denyMinutes || 15;
+          sendData(pid, { t:"denied", mins, msg:"Access denied. Try again in "+mins+" minutes." });
+          showSystemNote(`${name} denied (${mins}m).`);
+          closePeer(pid, "deny cooldown");
+          return;
+        }
+
+        state.pendingJoinRequests.set(pid, { name, ts: Date.now() });
+        renderJoinRequests();
+        return;
+      }
+
+
+
+
+    if (msg.t === "approved") {
+      // Joiner: only accept approval from host
+      if (!state.isHost) {
+        state.myApproved = true;
+        state.approvedByHost.add(remotePeerId);
+        showSystemNote("Approved by host. You can chat now.");
+        updateChatInputState();
+      }
+      return;
+    }
+
+    if (msg.t === "peer_approved") {
+      if (msg.peerId && typeof msg.peerId === "string") {
+        state.approvedByHost.add(msg.peerId);
+      }
+      updateChatInputState();
+      return;
+    }
+
+    if (msg.t === "denied") {
+      // Joiner UX
+      if (!state.isHost) {
+        const txt = msg.msg || "Access denied.";
+        showSystemNote(txt);
+        if (msg.retryAfterSec) {
+          showSystemNote(`Try again in ${Math.ceil(msg.retryAfterSec/60)} minutes.`);
+        }
+        state.myApproved = false;
+        updateChatInputState();
+        // Disconnect quickly.
+        closePeer(remotePeerId, "denied by host");
+      }
+      return;
+    }
+
+    if (msg.t === "kick") {
+      if (!state.isHost) {
+        const mins = msg.mins || (state.denyMinutes || 15);
+        showSystemNote(`Kicked by host. Try again in ${mins} minutes.`);
+        state.myApproved = false;
+        updateChatInputState();
+        closePeer(remotePeerId, "kicked");
+      }
+      return;
+    }
+
+    if (msg.t === "chat") {
+      // Mute is local, per-tab
+      if (state.mutedPeers.has(remotePeerId)) return;
+
+      // Approval gate: ignore chat from unapproved peers.
+      if (state.requireApproval) {
+        if (state.isHost) {
+          if (!state.approvedPeers.has(remotePeerId)) return;
+        } else {
+          // Until approved, ignore all incoming chat.
+          if (!state.myApproved) return;
+          // Ignore non-approved senders (except host)
+          if (remotePeerId !== state.hostId && !state.approvedByHost.has(remotePeerId)) return;
+        }
+      }
+
+      addBubble("peer", msg.text || "", remotePeerId, msg.replyTo || null);
+      return;
+    }
+  };
 }
 
   async function createOfferTo(remotePeerId) {
@@ -944,6 +1174,12 @@ function wireDataChannel(remotePeerId, dc) {
   }
 
   function broadcastChat(text) {
+  if (state.requireApproval && !state.isHost && !state.myApproved) {
+    showSystemNote("Waiting for host approval…");
+    updateChatInputState();
+    return;
+  }
+
   const payload = JSON.stringify({
     t: "chat",
     id: makeMsgId(),
@@ -953,16 +1189,179 @@ function wireDataChannel(remotePeerId, dc) {
     ts: Date.now()
   });
 
-  for (const [, p] of state.peers.entries()) {
+  for (const [peerId, p] of state.peers.entries()) {
+    if (p.dc && p.dc.readyState === "open") {
+      // In approval mode, only send to host / approved peers.
+      if (state.requireApproval && !state.isHost) {
+        if (peerId !== state.hostId && !state.approvedByHost.has(peerId)) continue;
+      }
+      try { p.dc.send(payload); } catch {}
+    }
+  }
+}
+
+function sendData(peerId, obj) {
+  const p = state.peers.get(peerId);
+  if (!p || !p.dc || p.dc.readyState !== "open") return false;
+  try { p.dc.send(JSON.stringify(obj)); return true; } catch { return false; }
+}
+
+
+function closePeer(peerId, reason) {
+  const p = state.peers.get(peerId);
+  if (!p) return;
+
+  try { p.dc && p.dc.close(); } catch {}
+  try { p.pc && p.pc.close(); } catch {}
+
+  state.peers.delete(peerId);
+  state.pendingJoinRequests && state.pendingJoinRequests.delete(peerId);
+  renderJoinRequests();
+  renderPeerList();
+  setStatus();
+  log(`Peer closed ${peerId}${reason ? " ("+reason+")" : ""}`);
+}
+
+function broadcastData(obj, exceptPeerId = null) {
+  const payload = JSON.stringify(obj);
+  for (const [peerId, p] of state.peers.entries()) {
+    if (exceptPeerId && peerId === exceptPeerId) continue;
     if (p.dc && p.dc.readyState === "open") {
       try { p.dc.send(payload); } catch {}
     }
   }
 }
 
+function showSystemNote(text) {
+  addBubble("sys", String(text||""), "system", null);
+}
+
+
+function denySeconds() {
+  return Math.max(60, (state.denyMinutes || 15) * 60);
+}
+
+function isDenied(peerId) {
+  const until = state.denyUntilByPeer.get(peerId);
+  return !!until && until > Date.now();
+}
+
+function applyDeny(peerId, reason) {
+  const until = Date.now() + denySeconds() * 1000;
+  state.denyUntilByPeer.set(peerId, until);
+  appendLog(`Denylist: ${peerId} until ${new Date(until).toISOString()} (${reason||"deny"})`);
+}
+
+
+function renderJoinRequests() {
+  if (!ui.joinRequests || !ui.joinReqList) return;
+
+  const show = !!state.isHost && !!state.requireApproval && state.pendingJoinRequests && state.pendingJoinRequests.size > 0;
+  ui.joinRequests.style.display = show ? "" : "none";
+  if (!show) return;
+
+  const rows = [];
+  for (const [peerId, info] of state.pendingJoinRequests.entries()) {
+    const name = info?.name || "Guest";
+    rows.push(`
+      <div class="reqRow" data-peer="${peerId}">
+        <div class="reqName"><span class="reqDot"></span><span>${escapeHtml(name)}</span></div>
+        <div class="reqBtns">
+          <button class="btn good" type="button" data-act="approve" data-peer="${peerId}">Approve</button>
+          <button class="btn bad" type="button" data-act="deny" data-peer="${peerId}">Deny</button>
+        </div>
+      </div>
+    `);
+  }
+  ui.joinReqList.innerHTML = rows.join("");
+
+  ui.joinReqList.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const act = btn.getAttribute("data-act");
+      const pid = btn.getAttribute("data-peer");
+      if (!pid) return;
+      if (act === "approve") approvePeer(pid);
+      if (act === "deny") denyPeer(pid);
+    });
+  });
+}
+
+function approvePeer(peerId) {
+  if (!state.isHost) return;
+
+  const req = state.pendingJoinRequests.get(peerId);
+  const name = req?.name || peerId;
+
+  state.pendingJoinRequests.delete(peerId);
+  state.approvedPeers.add(peerId);
+
+  sendData(peerId, { t:"approved", by: state.peerId });
+  broadcastData({ t:"peer_approved", peerId, by: state.peerId });
+
+  showSystemNote(`${name} approved.`);
+  renderJoinRequests();
+}
+
+function denyPeer(peerId) {
+  if (!state.isHost) return;
+
+  const req = state.pendingJoinRequests.get(peerId);
+  const name = req?.name || peerId;
+
+  state.pendingJoinRequests.delete(peerId);
+
+  const mins = state.denyMinutes || 15;
+  applyDeny(peerId, "host denied");
+  sendData(peerId, { t:"denied", mins, msg:"Access denied. Try again in "+mins+" minutes." });
+
+  showSystemNote(`${name} denied (${mins}m).`);
+  closePeer(peerId, "host denied");
+  renderJoinRequests();
+}
+
+function sendPolicyTo(peerId) {
+  sendData(peerId, { t:"policy", requireApproval: !!state.requireApproval, denyMinutes: state.denyMinutes, hostId: state.hostId || state.peerId });
+}
+
+
   // ---------- handlers ----------
   
   ui.replyClear.addEventListener("click", () => setReplyTo(null));
+
+  ui.muteBtn.addEventListener("click", () => {
+    if (!replyTo) return;
+    const pid = replyTo.peerId;
+    if (!pid) return;
+
+    // Don't allow joiners to mute host (rules + UX)
+    if (!state.isHost && state.hostId && pid === state.hostId) {
+      showSystemNote("You can't mute the host.");
+      return;
+    }
+
+    if (state.mutedPeers.has(pid)) {
+      state.mutedPeers.delete(pid);
+      showSystemNote(`Unmuted ${replyTo.name}.`);
+    } else {
+      state.mutedPeers.add(pid);
+      showSystemNote(`Muted ${replyTo.name}.`);
+    }
+    setReplyTo(replyTo); // refresh button label
+  });
+
+  ui.kickBtn.addEventListener("click", () => {
+    if (!replyTo || !state.isHost) return;
+    const pid = replyTo.peerId;
+    if (!pid || pid === state.peerId) return;
+
+    const mins = state.denyMinutes || 15;
+    applyDeny(pid, "host kicked");
+    sendData(pid, { t:"kick", mins });
+    showSystemNote(`Kicked ${replyTo.name} (${mins}m).`);
+    closePeer(pid, "host kicked");
+    broadcastData({ t:"peer_kicked", peerId: pid, mins, by: state.peerId });
+    setReplyTo(null);
+  });
 ui.enableBtn.addEventListener("click", () => {
     setStatus({ enabled: true });
     document.body.classList.add("sessionActive");
@@ -970,10 +1369,29 @@ ui.enableBtn.addEventListener("click", () => {
 updateChatInputState();
 
 
-    // Reuse roomId if present (A is correct)
-    let roomId = readRoomIdFromUrl();
+    // Determine role / policy BEFORE connecting
+    const existingRoomId = readRoomIdFromUrl();
+    state.isHost = !existingRoomId;
+
+    // Host can set approval + cooldown before enabling.
+    // Joiners read approval requirement from the URL flag (?a=1).
+    state.requireApproval = state.isHost ? !!ui.approvalToggle?.checked : readApprovalFlagFromUrl();
+    state.denyMinutes = Math.max(1, parseInt(ui.cooldownSelect?.value || "15", 10) || 15);
+
+    if (!state.isHost) {
+      // Joiners can't change host policy
+      if (ui.approvalToggle) ui.approvalToggle.disabled = true;
+      if (ui.cooldownSelect) ui.cooldownSelect.disabled = true;
+      if (ui.approvalHostOnlyHint) ui.approvalHostOnlyHint.style.display = "inline";
+    }
+
+    // Host generates a room id the first time they enable.
+    let roomId = existingRoomId;
     if (!roomId) {
       roomId = generateRoomId();
+      setRoomIdInUrl(roomId);
+    } else {
+      // Preserve approval flag on join links (no-op for host).
       setRoomIdInUrl(roomId);
     }
 
@@ -1063,6 +1481,14 @@ setFsLabel();
   ui.sendBtn.addEventListener("click", () => {
     const msg = ui.msgInput.value.trim();
     if (!msg) return;
+
+    // Approval gate
+    if (state.requireApproval && !state.isHost && !state.myApproved) {
+      showSystemNote("Waiting for host approval…");
+      updateChatInputState();
+      return;
+    }
+
     ui.msgInput.value = "";
     appendLog(`you: ${msg}`);
     addBubble("you", msg, state.peerId, replyTo ? { name: replyTo.name, text: String(replyTo.text || "").trim().slice(0, 80) } : null);
@@ -1076,9 +1502,54 @@ setFsLabel();
 
   // init inert
   setStatus({ enabled: false });
-updateChatInputState();
+  updateChatInputState();
 
-  resetRoomUi();
+  // Pre-session role + UI (no networking yet)
+  const initialRoomId = readRoomIdFromUrl();
+  state.isHost = !initialRoomId;
+
+  // Joiners read approval requirement from URL. Host can pre-configure.
+  state.requireApproval = state.isHost ? !!ui.approvalToggle?.checked : readApprovalFlagFromUrl();
+  state.denyMinutes = Math.max(1, parseInt(ui.cooldownSelect?.value || "15", 10) || 15);
+
+  if (!state.isHost) {
+    if (ui.approvalToggle) ui.approvalToggle.disabled = true;
+    if (ui.cooldownSelect) ui.cooldownSelect.disabled = true;
+    if (ui.approvalHostOnlyHint) ui.approvalHostOnlyHint.style.display = "inline";
+  }
+
+  if (initialRoomId) setRoomUi(initialRoomId);
+  else resetRoomUi();
+
+  // Host-only policy changes (safe before enabling)
+  if (ui.approvalToggle) {
+    ui.approvalToggle.addEventListener("change", () => {
+      if (!state.isHost) return;
+      state.requireApproval = !!ui.approvalToggle.checked;
+
+      if (state.roomId) {
+        setRoomIdInUrl(state.roomId); // updates ?a=1 flag too
+        setRoomUi(state.roomId);
+      }
+      if (state.enabled) {
+        broadcastData({ t:"policy", requireApproval: !!state.requireApproval, denyMinutes: state.denyMinutes, hostId: state.hostId || state.peerId });
+      }
+    });
+  }
+
+  if (ui.cooldownSelect) {
+    ui.cooldownSelect.addEventListener("change", () => {
+      if (!state.isHost) return;
+      state.denyMinutes = Math.max(1, parseInt(ui.cooldownSelect.value || "15", 10) || 15);
+      if (state.enabled) sendPolicyToAll();
+    });
+  }
+
+  function sendPolicyToAll() {
+    if (!state.enabled) return;
+    state.hostId = state.hostId || state.peerId;
+    broadcastData({ t:"policy", requireApproval: !!state.requireApproval, denyMinutes: state.denyMinutes, hostId: state.hostId });
+  }
 })();
 </script>
 

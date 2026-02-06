@@ -4,155 +4,101 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>HereNow — Private chat, by link, by choice</title>
-  <meta name="description" content="HereNow is a consent-first, short-lived chat. Set simple room rules, then turn chat on to create a share link. Close the tab and you’re out." />
+  <title>VoidChat - Scream into the Ephemeral</title>
+  <meta name="description" content="A consent-first, zero-persistence chat for geeks. Close the tab, and the session is purged from existence." />
 
   <style>
+    :root {
+      /* Refined Geek Palette - Synced with Chat UI */
+      --bg: #05070a; 
+      --panel: rgba(13, 17, 28, 0.7); 
+      --text: #eef2ff; 
+      --muted: #94a3b8; 
+      --faint: #475569;
+      --line: rgba(255, 255, 255, 0.08); 
+      --good: #10b981; 
+      --warn: #f59e0b; 
+      --bad: #ef4444; 
+      --link: #3b82f6;
+      --accent: #6366f1;
+    }
 
-    /* --- Optional theme swap (DiggTinder about-page look) ---
-       If you paste DiggTinder's about-page CSS variables + core styles here,
-       HereNow will inherit that vibe. Send me the DiggTinder about page CSS (or HTML)
-       and I’ll match it precisely. */
+    * { box-sizing: border-box; }
 
-    :root{
-      --bg:#0b1020;
-      --panel:#0f1730;
-      --text:#e9ecff;
-      --muted:#b7c0ff;
-      --faint:#7f8ad6;
-      --line:rgba(233,236,255,.15);
-      --good:#47e6b1;
-      --warn:#ffcc66;
-      --link:#78a6ff;
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: radial-gradient(1200px 700px at 20% 10%, rgba(120,166,255,.15), transparent 60%),
-                  radial-gradient(1000px 650px at 80% 20%, rgba(71,230,177,.10), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      line-height:1.5;
+
+    a { color: var(--link); text-decoration: none; transition: 0.2s; }
+    a:hover { color: #60a5fa; text-decoration: underline; }
+
+    .wrap { max-width: 980px; margin: 0 auto; padding: 40px 20px; }
+
+    header {
+      display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+      padding: 24px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 20px; backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
-    a{color:var(--link); text-decoration:none}
-    a:hover{text-decoration:underline}
-    .wrap{max-width:980px; margin:0 auto; padding:28px 18px 64px}
-    header{
-      display:flex;
-      gap:16px;
-      align-items:flex-start;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      padding:18px 18px 16px;
-      background: rgba(15,23,48,.72);
-      border:1px solid var(--line);
-      border-radius:14px;
-      backdrop-filter: blur(8px);
+
+    .brand h1 { margin: 0; font-size: 26px; letter-spacing: -0.5px; font-weight: 800; color: var(--accent); }
+    .brand p { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 12px 20px; border-radius: 10px; border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05); color: var(--text); 
+      font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;
     }
-    .brand h1{
-      margin:0;
-      font-size:22px;
-      letter-spacing:.2px;
+    .btn.primary { background: var(--accent); border-color: transparent; color: white; }
+    .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+    
+    main { margin-top: 24px; }
+    .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+    section {
+      padding: 24px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 20px; backdrop-filter: blur(8px);
     }
-    .brand p{
-      margin:6px 0 0;
-      color:var(--muted);
-      max-width:70ch;
+
+    h2 { margin: 0 0 12px; font-size: 18px; color: var(--accent); font-weight: 700; }
+    .muted { color: var(--muted); }
+    .faint { color: var(--faint); font-size: 13px; }
+
+    ul { margin: 12px 0; padding-left: 20px; }
+    li { margin: 8px 0; }
+
+    .rule {
+      display: flex; flex-direction: column; gap: 4px;
+      margin: 12px 0; padding: 14px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02);
     }
-    .cta{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .btn{
-      display:inline-block;
-      padding:10px 14px;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color:var(--text);
-      font-weight:600;
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); }
+    .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+    hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+
+    pre {
+      margin: 12px 0; padding: 16px; background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--line); border-radius: 12px;
+      font-family: ui-monospace, monospace; font-size: 13px; color: var(--accent);
+      overflow-x: auto;
     }
-    .btn.primary{
-      border-color: rgba(71,230,177,.35);
-      background: rgba(71,230,177,.10);
-    }
-    .btn.primary:hover{background: rgba(71,230,177,.16)}
-    .btn:hover{background: rgba(255,255,255,.06)}
-    main{margin-top:16px}
-    .grid{
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:14px;
-    }
-    @media (max-width: 860px){
-      .grid{grid-template-columns:1fr}
-    }
-    section{
-      padding:18px 18px 16px;
-      background: rgba(15,23,48,.58);
-      border:1px solid var(--line);
-      border-radius:14px;
-    }
-    h2{
-      margin:0 0 10px;
-      font-size:16px;
-      letter-spacing:.2px;
-    }
-    .muted{color:var(--muted)}
-    .faint{color:var(--faint)}
-    ul{margin:10px 0 0; padding-left:18px}
-    li{margin:6px 0}
-    .rule{
-      display:flex;
-      gap:10px;
-      margin:10px 0;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      font-weight:700;
-      white-space:nowrap;
-    }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      background: var(--good);
-      box-shadow: 0 0 0 3px rgba(71,230,177,.10);
-    }
-    .dot.warn{
-      background: var(--warn);
-      box-shadow: 0 0 0 3px rgba(255,204,102,.10);
-    }
-    hr{
-      border:0;
-      border-top:1px solid var(--line);
-      margin:14px 0;
-    }
-    code, pre{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    }
-    pre{
-      margin:10px 0 0;
-      padding:12px 12px;
-      background: rgba(0,0,0,.20);
-      border:1px solid rgba(233,236,255,.12);
-      border-radius:12px;
-      overflow:auto;
-      color: #d9defe;
-    }
-    footer{
-      margin-top:14px;
-      padding:14px 18px;
-      color:var(--faint);
-      font-size:13px;
-    }
+
+    footer { margin-top: 20px; padding: 20px; color: var(--faint); font-size: 13px; text-align: center; }
   </style>
 </head>
 
@@ -160,165 +106,134 @@
   <div class="wrap">
     <header>
       <div class="brand">
-        <h1>HereNow</h1>
+        <h1>VoidChat - Scream into the Ephemeral</h1>
         <p>
-          A private chat that only exists while you’re here.
-          Nothing runs in the background.
-          <strong>Close the chat tab and you’re out.</strong>
+          Consent-first, zero-persistence P2P messaging. 
+          When the tab dies, the session is purged. <strong>This never happened.</strong>
         </p>
       </div>
 
-      <div class="cta" aria-label="Primary actions">
-        <a class="btn primary" href="/herenow/chat" rel="nofollow">Open chat</a>
+      <div class="cta">
+        <a class="btn primary" href="/herenow/chat" rel="nofollow">Initialize Session</a>
       </div>
     </header>
 
     <main class="grid">
       <section>
-        <h2>The simple rules</h2>
+        <h2>The Core Directives</h2>
         <p class="muted">
-          HereNow is intentionally small. It’s not a platform. It’s a moment.
-          If you don’t open the chat page and say yes, nothing happens.
+          VoidChat isn't a "platform." It’s an ephemeral instance. If you aren't actively in the tab, the chat doesn't exist.
         </p>
 
         <hr />
 
-        <h2>How to start</h2>
+        <h2>Operational Flow</h2>
         <p class="muted">
-          The chat page is a two-step flow: set your room rules first, then turn chat on.
+          Establishing a connection is a two-step handshake:
         </p>
         <ul>
-          <li><strong>Step 1 — Room setup:</strong> choose a display name, and optionally enable Knock mode (passphrase).</li>
-          <li><strong>Step 2 — Turn chat on:</strong> a share link is created. Copy it and send it to the people you want.</li>
+          <li><strong>Handshake:</strong> Select a handle. If you're hosting, you decide if joiners need explicit approval.</li>
+          <li><strong>Broadcast:</strong> Generate your unique room link. Share it via your preferred secure channel.</li>
         </ul>
         <p class="faint">
-          If Knock mode is enabled, the link includes a tiny “knock” flag. Joiners must enter the passphrase first, then they can turn chat on.
-          The passphrase is never included in the link.
+          Host-only settings like Kick and Deny are handled locally in-memory. Once the host leaves, the room is effectively decommissioned.
         </p>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> This page is quiet</div>
-          <div class="muted">No prompts. No networking. Reading this page changes nothing.</div>
+          <div class="badge"><span class="dot"></span> Static & Silent</div>
+          <div class="muted">This page is inert. No background networking, no tracking, no cookies. Just code.</div>
         </div>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> You choose to join</div>
-          <div class="muted">The chat page asks before anything connects — every time, for that tab.</div>
+          <div class="badge"><span class="dot"></span> Explicit Opt-In</div>
+          <div class="muted">Nothing connects until you click the button. No auto-joining, ever.</div>
         </div>
 
         <div class="rule">
-          <div class="badge"><span class="dot"></span> Leaving is instant</div>
-          <div class="muted">Close the chat tab and the session ends. No history is kept.</div>
-        </div>
-
-        <div class="rule">
-          <div class="badge"><span class="dot warn"></span> Link-only</div>
-          <div class="muted">Only people you share a link with can join. No public rooms, no directory, no “who’s online”.</div>
+          <div class="badge"><span class="dot"></span> Volatile Memory</div>
+          <div class="muted">Closing the tab wipes the WebRTC data channels. No history is written to disk.</div>
         </div>
 
         <hr />
 
-        <h2>What it is (and isn’t)</h2>
+        <h2>Specs & Constraints</h2>
         <ul>
-          <li><strong>It is</strong> a short-lived chat session between people who have the link.</li>
-          <li><strong>It is</strong> consent-first: it stays off until you explicitly turn it on.</li>
-          <li><strong>It is not</strong> a social network, community platform, or identity system.</li>
-          <li><strong>It is not</strong> a background service. If you’re not on the chat page, it’s asleep.</li>
+          <li><strong>Direct P2P:</strong> Messages travel browser-to-browser via WebRTC.</li>
+          <li><strong>Introductions Only:</strong> A minimal signaling relay is used for the initial handshake, then gets out of the way.</li>
+          <li><strong>No Identity:</strong> No accounts, no persistent IDs, no "who's online" directory.</li>
+          <li><strong>The Vibe Check:</strong> If a feature requires a database, we don't build it.</li>
         </ul>
 
         <hr />
 
-        <h2>How it works (plain English)</h2>
+        <h2>Defensive Measures</h2>
         <p class="muted">
-          Your browser creates a temporary chat link. People join only by opening that link and choosing to participate.
+          Privacy isn't just about encryption; it's about friction.
         </p>
         <ul>
-          <li>Once connected, messages go directly between browsers.</li>
-          <li>A tiny relay is used only for introductions (so peers can find each other).</li>
-          <li>No accounts. No saved history. No replay. No recovery.</li>
+          <li><strong>Host Kick:</strong> Hosts can terminate a peer's connection and apply a local denylist cooldown.</li>
+          <li><strong>Room Purge:</strong> The host can end the session for all participants instantly.</li>
+          <li><strong>Rate Limits:</strong> Basic spam protection to prevent the room from melting.</li>
         </ul>
 
-        <hr />
-
-        <h2>Abuse brakes (built-in)</h2>
-        <p class="muted">
-          HereNow isn’t a platform, so the safety approach is simple: friction before participation, and quick exits.
-        </p>
-        <ul>
-          <li><strong>Kick + 60-minute deny</strong> (this tab only) from the People drawer.</li>
-          <li><strong>New link (room reset)</strong> to boot everyone and invalidate the old link.</li>
-          <li><strong>Silent limits</strong> (message size + rate limits) to keep spam from melting the room.</li>
-        </ul>
-
-        <h2>Optional: Knock mode</h2>
-        <p class="muted">
-          If you want extra friction, you can require a passphrase. The link lets people connect, but they can’t chat until they enter it.
-          The passphrase is never included in the link and nothing is saved.
-        </p>
-
-        <pre aria-label="Lifecycle">
-IDLE (this page) → IDLE
-open chat page → CONSENT → ACTIVE
-close chat tab → CLOSED → IDLE
-        </pre>
+        <pre aria-label="Lifecycle Logic">
+while (tab.isOpen) {
+  chat.active();
+}
+// tab.close() triggered
+chat.wipe();
+history.delete();
+return null;</pre>
       </section>
 
       <section>
-        <h2>Privacy posture</h2>
+        <h2>Privacy Posture</h2>
         <ul>
-          <li>No analytics on this page.</li>
-          <li>No scripts on this page.</li>
-          <li>No background polling. No “phone home”.</li>
-          <li>Chat exists only while the chat tab is open.</li>
+          <li>No Analytics.</li>
+          <li>No Scripts on this landing page.</li>
+          <li>No Phone-Home telemetry.</li>
+          <li>Peer-to-Peer by design.</li>
         </ul>
 
         <hr />
 
-        <h2>Use it safely</h2>
+        <h2>Safe Operating Procedures</h2>
         <p class="muted">
-          This is a lightweight tool, not a moderation platform:
+          Remember, "The Geek" rule #1: Even if the code is ephemeral, a screenshot is forever.
         </p>
         <ul>
-          <li>Share chat links only with people you intend to talk to.</li>
-          <li>Assume participants can screenshot.</li>
-          <li>If you don’t trust the link, don’t join.</li>
+          <li>Assume peers can capture the screen.</li>
+          <li>Only share links with trusted entities.</li>
+          <li>If you don't recognize the host ID, don't authorize the connection.</li>
         </ul>
 
         <hr />
 
         <h2>FAQ</h2>
-        <p><strong>Does visiting this page start anything?</strong><br>
-          <span class="muted">No. This page is inert by design.</span>
+        <p><strong>Does this page start a process?</strong><br>
+          <span class="muted">Negative. This is just documentation until you move to the chat sub-route.</span>
         </p>
 
-        <p><strong>Does opening the chat page auto-join?</strong><br>
-          <span class="muted">No. You’ll set your room rules first, then you choose whether to turn chat on.</span>
+        <p><strong>Is there a persistence layer?</strong><br>
+          <span class="muted">Zero. No databases, no logs, no recovery. Lost messages stay lost.</span>
         </p>
 
-        <p><strong>Is there a public lobby?</strong><br>
-          <span class="muted">No. Only links you share exist.</span>
-        </p>
-
-        <p><strong>What if the link says “Knock”?</strong><br>
-          <span class="muted">That room requires a passphrase. Enter it first, then you can turn chat on.</span>
-        </p>
-
-        <p><strong>Is anything stored?</strong><br>
-          <span class="muted">No chat history, no accounts, no persistence.</span>
+        <p><strong>Can I join a public lobby?</strong><br>
+          <span class="muted">There is no lobby. VoidChat is link-only. No discovery.</span>
         </p>
 
         <hr />
 
-        <h2>Ready?</h2>
-        <p class="muted">If you want to chat, head to the chat page.</p>
+        <h2>Ready to Void?</h2>
+        <p class="muted">Transition to the chat interface to begin.</p>
         <p>
-          <a class="btn primary" href="/herenow/chat" rel="nofollow">Go to /herenow/chat</a>
+          <a class="btn primary" href="/herenow/chat" rel="nofollow">Enter /voidchat/chat</a>
         </p>
       </section>
     </main>
 
     <footer>
-      HereNow stays intentionally minimal. If a feature would need another lifecycle state, it doesn’t belong.
+      VoidChat is intentionally minimal. If it needs a server to remember it, it doesn’t belong here.
     </footer>
   </div>
 </body>

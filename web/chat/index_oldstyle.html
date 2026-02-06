@@ -6,167 +6,352 @@
   <title>HereNow — Chat</title>
   <meta name="description" content="Consent-first, ephemeral chat. Explicit opt-in per session. Close tab = chat off." />
   <meta name="referrer" content="no-referrer" />
-<style>
-  :root {
-    /* Refined Geek Palette */
-    --bg: #05070a; 
-    --panel: rgba(13, 17, 28, 0.7); 
-    --text: #eef2ff; 
-    --muted: #94a3b8; 
-    --faint: #475569;
-    --line: rgba(255, 255, 255, 0.08); 
-    --good: #10b981; 
-    --warn: #f59e0b; 
-    --bad: #ef4444; 
-    --link: #3b82f6;
-    --accent: #6366f1;
-  }
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#0f1730; --text:#e9ecff; --muted:#b7c0ff; --faint:#7f8ad6;
+      --line:rgba(233,236,255,.15); --good:#47e6b1; --warn:#ffcc66; --bad:#ff6b6b; --link:#78a6ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(120,166,255,.15), transparent 60%),
+                  radial-gradient(1000px 650px at 80% 20%, rgba(71,230,177,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.5;
+    }
+    a{color:var(--link); text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px; margin:0 auto; padding:28px 18px 64px}
+    header{
+      display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      padding:18px 18px 16px; background:rgba(15,23,48,.72); border:1px solid var(--line);
+      border-radius:14px; backdrop-filter:blur(8px);
+    }
+    h1{margin:0; font-size:20px}
+    header p{margin:6px 0 0; color:var(--muted); max-width:75ch}
+    .btn{
+      display:inline-block; padding:10px 14px; border-radius:12px; border:1px solid var(--line);
+      background:rgba(255,255,255,.04); color:var(--text); font-weight:700; cursor:pointer;
+    }
+    .btn:hover{background:rgba(255,255,255,.06)}
+    .btn.primary{border-color:rgba(71,230,177,.35); background:rgba(71,230,177,.10)}
+    .btn.primary:hover{background:rgba(71,230,177,.16)}
+    .btn.danger{border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.10)}
+    .btn.danger:hover{background:rgba(255,107,107,.16)}
+    .btn.good{border-color:rgba(71,230,177,.35); background:rgba(71,230,177,.10)}
+    .btn.good:hover{background:rgba(71,230,177,.16)}
+    .btn.bad{border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.10)}
+    .btn.bad:hover{background:rgba(255,107,107,.16)}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+    main{margin-top:16px}
+    .grid{display:grid; grid-template-columns: 1fr; gap:14px}
+    section{
+      padding:18px 18px 16px; background:rgba(15,23,48,.58); border:1px solid var(--line);
+      border-radius:14px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .muted{color:var(--muted)}
+    .faint{color:var(--faint)}
+.toast {
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(233,236,255,.16);
+  background:rgba(0,0,0,.25);
+  font-weight:700;
+  font-size:12px;
+}
+.toast.good { border-color:rgba(71,230,177,.35); color:var(--good); }
+.toast.bad  { border-color:rgba(255,107,107,.35); color:var(--bad); }
 
-  * { box-sizing: border-box; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; border:1px solid var(--line);
+      background:rgba(255,255,255,.03); font-weight:700;
+    }
+    .dot{width:10px; height:10px; border-radius:999px; background:var(--warn); box-shadow:0 0 0 3px rgba(255,204,102,.10)}
+    .dot.good{background:var(--good); box-shadow:0 0 0 3px rgba(71,230,177,.10)}
+    .dot.bad{background:var(--bad); box-shadow:0 0 0 3px rgba(255,107,107,.10)}
+    .box{
+      padding:12px; border-radius:12px; border:1px solid rgba(233,236,255,.12);
+      background:rgba(0,0,0,.20);
+    }
+    textarea{
+      width:100%; min-height:150px; resize:vertical; padding:12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      line-height:1.35;
+    }
+    input[type="text"]{
+      width:min(520px,100%); padding:10px 12px; border-radius:12px;
+      border:1px solid rgba(233,236,255,.16); background:rgba(0,0,0,.22); color:var(--text);
+    }
+    footer{margin-top:14px; padding:14px 18px; color:var(--faint); font-size:13px}
+    .sr{position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden}
 
-  body {
-    margin: 0;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: 
-      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
-      var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-  }
+.chatFeed{
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(0,0,0,.18);
+  border-radius:12px;
+  padding:12px;
+  min-height:220px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
 
-  a { color: var(--link); text-decoration: none; transition: 0.2s; }
-  a:hover { color: #60a5fa; }
+/* Messages card layout stacks and transcript stretches */
+#messagesCard{
+  display:grid;
+  grid-template-columns: 1fr 280px;
+  gap:14px;
+}
+#chatArea{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+#chatFeed{
+  flex:1;
+  min-height:280px; /* normal mode baseline */
+}
 
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+/* Session active makes transcript taller */
+body.sessionActive #chatFeed{
+  min-height:52vh;
+  max-height:52vh;
+}
 
-  header {
-    display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;
-    padding: 24px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 20px; backdrop-filter: blur(12px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  }
+/* Chat expand / zen mode */
+body.zenMode{
+  overflow:hidden;
+}
+body.zenMode #messagesCard{
+  position:fixed;
+  inset:12px;
+  z-index:9999;
+  margin:0;
+  max-width:none;
+  height:calc(100vh - 24px);
+  grid-template-columns: 1fr 280px;
+}
+body.zenMode #chatArea{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+body.zenMode details,
+body.zenMode #messagesCard p.faint:not(.metaLine),
+body.zenMode #messagesCard > div > h2{
+  display:none;
+}
+body.zenMode #chatFeed{
+  flex:1;
+  min-height:0;
+  max-height:none;
+}
+body.zenMode .messageRow,
+body.zenMode .replyBar{
+  flex-shrink:0;
+}
+body.zenMode #participantDrawer{
+  max-height:none;
+}
 
-  h1 { margin: 0; font-size: 22px; letter-spacing: -0.5px; font-weight: 800; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+/* Fullscreen mode (real fullscreen API) */
+#messagesCard:fullscreen{
+  grid-template-columns: 1fr 280px;
+  padding:12px;
+  background:var(--bg);
+}
+#messagesCard:fullscreen #chatArea{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+#messagesCard:fullscreen details,
+#messagesCard:fullscreen p.faint:not(.metaLine),
+#messagesCard:fullscreen > div > h2{
+  display:none;
+}
+#messagesCard:fullscreen #chatFeed{
+  flex:1;
+  min-height:0;
+  max-height:none;
+}
+#messagesCard:fullscreen .messageRow,
+#messagesCard:fullscreen .replyBar{
+  flex-shrink:0;
+}
+#messagesCard:fullscreen #participantDrawer{
+  max-height:none;
+}
 
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.05); color: var(--text); 
-    font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;
-  }
-  .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: rgba(255,255,255,0.2); transform: translateY(-1px); }
-  
-  .btn.primary { background: var(--accent); border-color: transparent; color: white; }
-  .btn.danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
 
-  main { margin-top: 24px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.bubble{
+  max-width:80%;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(233,236,255,.12);
+  background:rgba(255,255,255,.05);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
 
-  section {
-    padding: 24px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 20px; backdrop-filter: blur(8px);
-  }
+.bubble.you{
+  align-self:flex-end;
+  border-color:rgba(71,230,177,.30);
+  background:rgba(71,230,177,.10);
+}
 
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .muted { color: var(--muted); }
-  .faint { color: var(--faint); font-size: 13px; }
+.bubble.peer{
+  align-self:flex-start;
+  border-color:rgba(120,166,255,.30);
+  background:rgba(120,166,255,.10);
+}
 
-  .pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 14px; border-radius: 99px; border: 1px solid var(--line);
-    background: rgba(0,0,0,0.2); font-weight: 600; font-size: 13px;
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-  .dot.good { background: var(--good); box-shadow: 0 0 8px var(--good); }
-  .dot.bad { background: var(--bad); box-shadow: 0 0 8px var(--bad); }
+.bubble.sys{
+  align-self:center;
+  max-width:90%;
+  border-color:rgba(255,204,102,.30);
+  background:rgba(255,204,102,.08);
+  color:var(--warn);
+  font-size:13px;
+  font-style:italic;
+}
 
-  input[type="text"], textarea, select {
-    width: 100%; padding: 12px 16px; border-radius: 12px;
-    border: 1px solid var(--line); background: rgba(0, 0, 0, 0.3);
-    color: var(--text); outline: none; transition: border-color 0.2s;
-  }
+.metaLine{
+  font-size:12px;
+  color:var(--faint);
+  margin-bottom:6px;
+}
 
-  /* Chat Feed */
-  .chatFeed {
-    border: 1px solid var(--line); background: rgba(0, 0, 0, 0.2);
-    border-radius: 16px; padding: 20px; display: flex;
-    flex-direction: column; gap: 16px; overflow-y: auto;
-  }
+  /* --- sender accents (session-only) --- */
+.bubble.peer{
+  border-left:4px solid var(--who, rgba(255,255,255,.15));
+  padding-left:10px;
+}
 
-  #messagesCard { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-  body.sessionActive #chatFeed { min-height: 55vh; max-height: 55vh; }
+.metaLine{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
 
-/* BUBBLE HIGHLIGHTS */
-  .bubble {
-    max-width: 85%; padding: 12px 16px; border-radius: 18px;
-    border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
-    position: relative;
-    /* Apply the accent border to EVERY bubble that has a --who color */
-    border-left: 4px solid var(--who, var(--line));
-  }
+.metaLine::before{
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: var(--who, rgba(255,255,255,.25));
+  flex:0 0 auto;
+}
 
-  .bubble.you {
-    align-self: flex-end; border-bottom-right-radius: 4px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
-    border-color: rgba(99, 102, 241, 0.3);
-    /* Your own color is the primary accent */
-    --who: var(--accent);
-  }
+/* --- reply bar --- */
+.replyBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 8px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(255,255,255,.04);
+}
 
-  .bubble.peer {
-    align-self: flex-start; border-bottom-left-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
-  }
+/* --- expand button --- */
+    #fsBtn{ min-width:92px; white-space:nowrap; }
+.messageRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 
-  .bubble.sys {
-    align-self: center;
-    border-left: none; /* No accent for system notes */
-    max-width: 90%;
-    border-color: rgba(255, 204, 102, 0.2);
-    background: rgba(255, 204, 102, 0.05);
-    color: var(--warn);
-    font-size: 13px; font-style: italic;
-  }
+.messageRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
-  /* Meta Line Dots - Matches the participant color */
-  .metaLine { 
-    display: flex; align-items: center; gap: 8px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; 
-    letter-spacing: 0.5px; opacity: 0.8; margin-bottom: 6px; 
-  }
-  
-  .metaLine::before {
-    content: "";
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--who, var(--accent));
-    box-shadow: 0 0 6px var(--who, var(--accent));
-    flex-shrink: 0;
-  }
-  
-  .bubble.you .metaLine::before {
-    background: var(--accent);
-    box-shadow: 0 0 6px var(--accent);
-  }
 
-  /* Participant Drawer */
-  #participantDrawer {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 20px; padding: 20px;
-  }
-  .participantItem {
-    background: rgba(255,255,255,0.03); border: 1px solid var(--line);
-    margin-bottom: 8px; border-radius: 12px; padding: 8px 12px;
-  }
+/* Join request queue (host-only, session-only) */
+.requests{margin:10px 0 12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(10,14,30,.35)}
+.reqHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.reqTitle{font-weight:700}
+.reqHint{color:var(--muted);font-size:12px;line-height:1.35;max-width:520px}
+.reqList{display:flex;flex-direction:column;gap:8px}
+.reqRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.reqName{display:flex;align-items:center;gap:8px;font-weight:600}
+.reqDot{width:8px;height:8px;border-radius:999px;background:var(--warn);box-shadow:0 0 0 3px rgba(255,204,102,.15)}
+.reqBtns{display:flex;gap:8px}
 
-  @media (max-width: 850px) {
-    #messagesCard { grid-template-columns: 1fr; }
-    #participantDrawer { display: none; }
-    .wrap { padding: 15px; }
-  }
+/* Participant drawer (always visible) */
+#participantDrawer{
+  display:flex;
+  flex-direction:column;
+  width:280px;
+  padding:16px;
+  background:rgba(15,23,48,.72);
+  border:1px solid var(--line);
+  border-radius:14px;
+  gap:12px;
+  overflow-y:auto;
+  max-height:calc(100vh - 200px);
+}
+#participantDrawer h3{
+  margin:0 0 8px;
+  font-size:14px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+.participantItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.06);
+}
+.participantInfo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex:1;
+  min-width:0;
+}
+.participantName{
+  font-weight:600;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.participantDot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:var(--accent);
+  flex-shrink:0;
+}
+.participantActions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+  flex-wrap:wrap;
+}
+.participantActions .btn{
+  padding:5px 8px;
+  font-size:11px;
+  min-width:0;
+  white-space:nowrap;
+}
+
+
 </style>
 </head>
 
@@ -741,14 +926,11 @@ function updateChatInputState() {
 }
 
 function leaveSession(reason = "leave") {
-  if (state.isHost && state.enabled) {
-    broadcastData({ t: "room_closed", msg: "Host has ended the session. Room is now closed." });
-  }
-
   disconnectAll(reason);
 
   setStatus({ enabled: false });
 
+  // Reset Enable button UI
   ui.enableBtn.disabled = false;
   ui.enableBtn.textContent = "Start session";
 
@@ -760,11 +942,10 @@ function leaveSession(reason = "leave") {
   state.approvedPeers.clear();
   state.approvedByHost.clear();
   state.pendingJoinRequests.clear();
-  
   setReplyTo(null);
   renderJoinRequests();
   renderParticipants();
-  
+
   ui.log.value = "(idle)\n- no connections\n- no signaling\n- no WebRTC\n";
   if (ui.chatFeed) ui.chatFeed.innerHTML = "";
   updateChatInputState();
@@ -942,19 +1123,11 @@ function wireDataChannel(remotePeerId, dc) {
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (!msg || typeof msg.t !== "string") return;
 
- // CLEANED BLOCK: Replace lines 730-745 with this:
     if (msg.t === "hello") {
       if (msg.name && typeof msg.name === "string") {
         state.peerNames.set(remotePeerId, msg.name.slice(0, 24));
         renderParticipants();
       }
-      return;
-    }
-
-    // This handles the 'Host Closes Session' logic we added
-    if (msg.t === "room_closed") {
-      showSystemNote(msg.msg || "Room closed by host.");
-      setTimeout(() => leaveSession("host_closed"), 2000); 
       return;
     }
 
@@ -1020,14 +1193,12 @@ function wireDataChannel(remotePeerId, dc) {
     }
 
     if (msg.t === "peer_approved") {
-  if (msg.peerId && typeof msg.peerId === "string") {
-    // Add to local 'trusted' set so we can see their messages and send to them
-    state.approvedByHost.add(msg.peerId);
-  }
-  updateChatInputState();
-  renderParticipants();
-  return;
-}
+      if (msg.peerId && typeof msg.peerId === "string") {
+        state.approvedByHost.add(msg.peerId);
+      }
+      updateChatInputState();
+      return;
+    }
 
     if (msg.t === "denied") {
       // Joiner UX
@@ -1170,10 +1341,9 @@ function wireDataChannel(remotePeerId, dc) {
 
   for (const [peerId, p] of state.peers.entries()) {
     if (p.dc && p.dc.readyState === "open") {
-      // Logic fix: Only skip if approval is required AND the target isn't the host or approved
-      if (state.requireApproval) {
-        const isTargetApproved = state.approvedByHost.has(peerId) || peerId === state.hostId;
-        if (!isTargetApproved) continue;
+      // In approval mode, only send to host / approved peers.
+      if (state.requireApproval && !state.isHost) {
+        if (peerId !== state.hostId && !state.approvedByHost.has(peerId)) continue;
       }
       try { p.dc.send(payload); } catch {}
     }
@@ -1362,18 +1532,12 @@ function approvePeer(peerId) {
 
   state.pendingJoinRequests.delete(peerId);
   state.approvedPeers.add(peerId);
-  // CRITICAL: Host must also track this locally to send messages TO this peer
-  state.approvedByHost.add(peerId); 
 
-  // 1. Tell the joiner they are approved
   sendData(peerId, { t:"approved", by: state.peerId });
-  
-  // 2. TELL EVERYONE ELSE: This peer is now authorized
   broadcastData({ t:"peer_approved", peerId, by: state.peerId });
 
   showSystemNote(`${name} approved.`);
   renderJoinRequests();
-  renderParticipants(); 
 }
 
 function denyPeer(peerId) {
@@ -1553,22 +1717,20 @@ setFsLabel();
 
   // Update UI based on role (host vs joiner)
   function updateRoleBasedUI() {
-    // Show/Hide the whole Share Link section for everyone based on session state
-    const step2 = document.getElementById("step2");
-    if (step2) step2.style.display = state.enabled ? "" : ""; // Keep visible to show link
-
     if (state.isHost) {
+      // Host: show all controls
       if (ui.step1HostText) ui.step1HostText.style.display = "";
       if (ui.step1JoinerText) ui.step1JoinerText.style.display = "none";
       if (ui.approvalToggleLabel) ui.approvalToggleLabel.style.display = "";
       if (ui.cooldownSelectLabel) ui.cooldownSelectLabel.style.display = "";
-      if (ui.copyBtn) ui.copyBtn.style.display = ""; // Ensure copy button is visible for host
+      if (ui.cooldownSelect) ui.cooldownSelect.style.display = "";
     } else {
+      // Joiner: hide approval controls, show joiner text
       if (ui.step1HostText) ui.step1HostText.style.display = "none";
       if (ui.step1JoinerText) ui.step1JoinerText.style.display = "";
       if (ui.approvalToggleLabel) ui.approvalToggleLabel.style.display = "none";
       if (ui.cooldownSelectLabel) ui.cooldownSelectLabel.style.display = "none";
-      if (ui.copyBtn) ui.copyBtn.style.display = "none"; // Joiners don't need to copy/share
+      if (ui.cooldownSelect) ui.cooldownSelect.style.display = "none";
     }
   }
 
@@ -1617,34 +1779,6 @@ setFsLabel();
     state.hostId = state.hostId || state.peerId;
     broadcastData({ t:"policy", requireApproval: !!state.requireApproval, denyMinutes: state.denyMinutes, hostId: state.hostId });
   }
-ui.enableBtn.addEventListener("click", () => {
-    const name = getDisplayName();
-    if (!name) {
-      alert("Please enter a handle first.");
-      return;
-    }
-
-    const initialRoomId = readRoomIdFromUrl();
-    state.isHost = !initialRoomId;
-
-    if (state.isHost) {
-      state.roomId = generateRoomId();
-      state.requireApproval = !!ui.approvalToggle?.checked;
-    } else {
-      state.roomId = initialRoomId;
-      state.requireApproval = readApprovalFlagFromUrl();
-    }
-
-    state.peerId = generatePeerId();
-    setRoomUi(state.roomId);
-    setRoomIdInUrl(state.roomId);
-
-    setStatus({ enabled: true });
-    document.body.classList.add("sessionActive");
-    connectSignaling(state.roomId);
-    updateChatInputState();
-  });
-
 })();
 </script>
 
